@@ -2,7 +2,6 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from shared.student import VARIANT_NUMBER
 
 users = {
     "admin001": {
@@ -54,7 +53,7 @@ security_levels = ("Public", "Internal", "Confidential", "Secret")
 blocked_users = {"contractor99", "temp_user", "suspended_acc"}
 
 # вивід списку ресурсів
-print(f"--- Ресурси системи (Варіант {VARIANT_NUMBER}) ---")
+print("--- Ресурси системи  ---")
 for res_name, res_level in resources:
     # рівні безпеки від 1 до 4, а індекси в кортежі від 0 до 3
     level_name = security_levels[res_level - 1]
@@ -89,7 +88,6 @@ test_users = list(users.keys()) + ["unknown_hacker"]
 
 # перевірка кожного користувача до кожного ресурсу
 for current_user in test_users:
-    # щоб вивід був трохи читабельнішим, додам порожній рядок між користувачами
     print("-" * 60)
     for res_name, res_level in resources:
         access_result = check_access(current_user, res_name, res_level)

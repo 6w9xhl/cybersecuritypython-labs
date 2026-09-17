@@ -28,7 +28,6 @@ forbidden_passwords = {"password", "123456", "admin", "test", "welcome", "qwerty
 
 import random
 
-# 3 випадкові індекси і дублікати паролів
 for _ in range(3):
     random_index = random.randint(0, len(passwords) - 1)
     passwords.append(passwords[random_index])
@@ -42,30 +41,24 @@ def analyze_password(password, criteria, forbidden, all_passwords):
     # не буква і не цифра
     has_special = any(not char.isalnum() for char in password)
 
-    # кількість виконаних умов
     conditions_met = sum([has_digit, has_upper, has_special, has_lower])
 
-    # заборонений
     if password in forbidden or length < criteria["min_length"]:
         return "Заборонений"
 
-    # дуже сильний
-    # перевірка на унікальність: якщо кількість входжень у список більше 1, то не унікальний
+    # перевірка на унікальність: якщо є дублікат, то не унікальний
     is_unique = all_passwords.count(password) == 1
     if conditions_met >= 3 and length >= criteria["min_length"] + 4 and is_unique:
         return "Дуже сильний"
 
-    # сильний
     # відповідає всім 4 групам символів, але коротший або не унікальний
     if conditions_met >= 4:
         return "Сильний"
 
-    # середній
-    # мінімальна довжина і деякі (але не всі) критерії
+    # мінімальна довжина і мін 2 типи символів
     if length >= criteria["min_length"] and conditions_met >= 2:
         return "Середній"
 
-    # слабкий
     # якщо виконується хоча б один критерій з груп символів
     if conditions_met >= 1:
         return "Слабкий"
