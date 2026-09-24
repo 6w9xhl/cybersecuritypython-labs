@@ -97,7 +97,7 @@ def create_users(users_list):
     with open(CSV_FILE, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)  # створює об'єкт для запису даних у CSV
         writer.writerow(["username", "password_hash"])
-        for u, p in users_list:
+        for u, p in users_list:# перебирає список користувачів, хешує їхні паролі та записує логін і хеш у CSV
             writer.writerow(create_user(u, p))
 
 
