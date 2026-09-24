@@ -217,3 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .venv/
+labs/lab01/data/users.csv
+labs/lab01/data/log.json
