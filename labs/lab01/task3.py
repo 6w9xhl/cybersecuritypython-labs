@@ -36,7 +36,7 @@ def generate_hash(password: str, salt: str = "00000") -> str:
     salted_password = password + salt
     return hashlib.sha3_512(
         salted_password.encode("utf-8")
-    ).hexdigest()  # тескт байти,пережовує і назад в 16
+    ).hexdigest()  # тескт байти,пережовує і назад в 16 хеш
 
 
 # декоратор для логування подій у JSON. перехоплює процес авторизації
@@ -58,14 +58,14 @@ def log_event(func):
                 "kwargs": {},
             }
 
-            os.makedirs(DATA_DIR, exist_ok=True)
+            os.makedirs(DATA_DIR, exist_ok=True)  # не видасть помилку, якщо папка вже є
             logs = []
 
             # читаємо існуючі логи, якщо файл є
             if os.path.exists(LOG_FILE):
                 try:
                     with open(LOG_FILE, mode="r", encoding="utf-8") as lf:
-                        logs = json.load(lf)
+                        logs = json.load(lf)  # зчитує вміст файлу у змінну logs
                 except (OSError, json.JSONDecodeError):
                     pass
 
@@ -85,16 +85,17 @@ def log_event(func):
     return wrapper
 
 
-# функції реєстрації. перетворення пароль на хеш
+# функції реєстрації. перетворення пароль на хеш. вертає кортеж із двох елементів(логін та хеш)
 def create_user(username, password):
     hash_value = generate_hash(password, PERSONAL_SALT)
     return (username, hash_value)
 
 
+# створює базу даних. відкриває юзерс.csv,записує перший рядок-заголовок
 def create_users(users_list):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(CSV_FILE, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f)  # створює об'єкт для запису даних у CSV
         writer.writerow(["username", "password_hash"])
         for u, p in users_list:
             writer.writerow(create_user(u, p))
@@ -110,11 +111,12 @@ def login(username: str, password: str) -> bool:
         open(CSV_FILE, mode="r", encoding="utf-8") as f
     ):  # читає CSV-файл і перетворює його на список словників,де ключі це заголовки
         reader = csv.DictReader(f)
-        users_db = list(reader)
+        users_db = list(reader)  # перетворює на список словників
 
     input_hash = generate_hash(password, PERSONAL_SALT)  # хешує пароль, який ввів юзер
 
-    for user in users_db:
+    for user in users_db:  # перевірка хешів, а НЕ паролів
+        # перевірка, чи збігається логін ТА чи дорівнює збережений хеш новоствореному
         if user["username"] == username and user["password_hash"] == input_hash:
             return True
     return False
@@ -146,7 +148,9 @@ def main():
         print("Зміст бази даних:")
         with open(CSV_FILE, mode="r", encoding="utf-8") as f:
             reader = csv.reader(f)
-            header = next(reader)
+            header = next(
+                reader
+            )  # вона бере найперший рядок з файлу (назви колонок username та password_hash) і відкладає його у змінну header
             print(f"{header[0]:<15} | {header[1]}")
             print("-" * 80)
             for row in reader:
