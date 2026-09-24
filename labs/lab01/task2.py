@@ -63,7 +63,7 @@ print("\n--- Результати перевірки доступу ---")
 
 
 # алгоритм перевірки доступу
-def check_access(username, resource_name, resource_level):
+def check_access(username, resource_level):
     # якшо користувача немає в словнику
     if username not in users:
         return "DENY (User not found)"
@@ -90,5 +90,5 @@ test_users = list(users.keys()) + ["unknown_hacker"]
 for current_user in test_users:
     print("-" * 60)
     for res_name, res_level in resources:
-        access_result = check_access(current_user, res_name, res_level)
+        access_result = check_access(current_user, res_level)
         print(f"user={current_user:<15} resource={res_name:<20} -> {access_result}")
