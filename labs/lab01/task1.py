@@ -16,6 +16,7 @@ passwords = [
     "P@ssword123",
     "welcome",
     "StrongP@ss1",
+    "bygagaga",
 ]
 
 criteria = {

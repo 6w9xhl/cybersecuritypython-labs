@@ -36,7 +36,7 @@ def generate_hash(password: str, salt: str = "00000") -> str:
     salted_password = password + salt
     return hashlib.sha3_512(
         salted_password.encode("utf-8")
-    ).hexdigest()  # тескт байти,пережовує і назад в 16 хеш
+    ).hexdigest()  # текст у байти, хешує і назад у 16-ковий рядок
 
 
 # декоратор для логування подій у JSON. перехоплює процес авторизації
@@ -49,12 +49,13 @@ def log_event(func):
                 result_status = "success"
             return res
         finally:
+            safe_password_mask = "*" * len(password) if password else ""
             log_entry = {
                 "event": "login",
                 "user": username,
                 "result": result_status,
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                "args": [username, "*" * len(password)],
+                "args": [username, safe_password_mask],
                 "kwargs": {},
             }
 
@@ -73,50 +74,53 @@ def log_event(func):
 
             # запис оновленого списку логів
             try:
-                with (
-                    open(LOG_FILE, mode="w", encoding="utf-8") as lf
-                ):  # якшо файл є, відкриває його і зчитує стару історію в змінну logs
+                with open(LOG_FILE, mode="w", encoding="utf-8") as lf:
                     json.dump(
                         logs, lf, indent=4, ensure_ascii=False
-                    )  # відкриває файл на перезапис і зберігає туди весь оновлений список logs
+                    )  # зберігає оновлений список logs
             except OSError:
                 pass
 
     return wrapper
 
 
-# функції реєстрації. перетворення пароль на хеш. вертає кортеж із двох елементів(логін та хеш)
+# функції реєстрації. перетворення пароля на хеш. вертає кортеж із двох елементів (логін та хеш)
 def create_user(username, password):
+    if not username or not username.strip():
+        raise ValueError("Помилка!Логін не може бути порожнім")
+    if not password or not password.strip():
+        raise ValueError("Помилка, Пароль не може бути порожнім!")
     hash_value = generate_hash(password, PERSONAL_SALT)
     return (username, hash_value)
 
 
-# створює базу даних. відкриває юзерс.csv,записує перший рядок-заголовок
+# створює базу даних. відкриває users.csv, записує перший рядок-заголовок
 def create_users(users_list):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(CSV_FILE, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)  # створює об'єкт для запису даних у CSV
         writer.writerow(["username", "password_hash"])
-        for u, p in users_list:# перебирає список користувачів, хешує їхні паролі та записує логін і хеш у CSV
-            writer.writerow(create_user(u, p))
+        for u, p in users_list:
+            try:
+                # якщо логін порожній, create_user викине помилку і запис у CSV не відбудеться
+                writer.writerow(create_user(u, p))
+            except (ValueError, ValidationError) as e:
+                print(f"Відхилено створення користувача '{u}': {e}")
 
 
 # функція авторизації
 @log_event
 def login(username: str, password: str) -> bool:
-    if not username or not password:
+    if not username or not username.strip() or not password or not password.strip():
         raise ValueError("Логін або пароль порожні")
 
-    with (
-        open(CSV_FILE, mode="r", encoding="utf-8") as f
-    ):  # читає CSV-файл і перетворює його на список словників,де ключі це заголовки
+    with open(CSV_FILE, mode="r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         users_db = list(reader)  # перетворює на список словників
 
     input_hash = generate_hash(password, PERSONAL_SALT)  # хешує пароль, який ввів юзер
 
     for user in users_db:  # перевірка хешів, а НЕ паролів
-        # перевірка, чи збігається логін ТА чи дорівнює збережений хеш новоствореному
         if user["username"] == username and user["password_hash"] == input_hash:
             return True
     return False
@@ -126,7 +130,7 @@ def login(username: str, password: str) -> bool:
 def main():
     print(f"Персональна сіль: '{PERSONAL_SALT}'\n")
 
-    # кортеж із 10 користувачів паролі >= 12 символів
+    # кортеж користувачів (паролі >= 12 символів)
     users_to_register = (
         ("khrystyna", "MySecurePass2026!"),
         ("marta", "MathTutoring2026!"),
@@ -138,6 +142,7 @@ def main():
         ("user3", "ValidPassword123!"),
         ("user4", "StrongPassword12!"),
         ("user5", "CyberSecurity2026!"),
+        ("", "SomePass123456!"),
     )
 
     try:
@@ -148,9 +153,7 @@ def main():
         print("Зміст бази даних:")
         with open(CSV_FILE, mode="r", encoding="utf-8") as f:
             reader = csv.reader(f)
-            header = next(
-                reader
-            )  # вона бере найперший рядок з файлу (назви колонок username та password_hash) і відкладає його у змінну header
+            header = next(reader)
             print(f"{header[0]:<15} | {header[1]}")
             print("-" * 80)
             for row in reader:
@@ -162,6 +165,7 @@ def main():
             ("khrystyna", "MySecurePass2026!"),  # правильний пароль
             ("marta", "WrongPass123456!"),  # неправильний пароль
             ("hacker", "SomePass123456!"),  # юзера не існує
+            ("admin", "SuperSecretPass123!"),  # спроба входу з порожнім логіном
         ]
 
         for u, p in test_cases:

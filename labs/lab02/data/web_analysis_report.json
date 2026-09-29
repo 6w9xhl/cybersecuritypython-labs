@@ -1,0 +1,76 @@
+{
+  "total_entries": 68,
+  "time_range": {
+    "start": "2026-09-27 08:00:00",
+    "end": "2026-09-27 19:06:00"
+  },
+  "top_error_ips": [
+    {
+      "ip": "203.0.113.99",
+      "total_errors": 18,
+      "status_breakdown": {
+        "400": 4,
+        "401": 2,
+        "403": 2,
+        "404": 9,
+        "500": 1
+      }
+    },
+    {
+      "ip": "192.0.2.11",
+      "total_errors": 7,
+      "status_breakdown": {
+        "400": 2,
+        "401": 3,
+        "404": 1,
+        "500": 1
+      }
+    },
+    {
+      "ip": "192.0.2.10",
+      "total_errors": 4,
+      "status_breakdown": {
+        "400": 1,
+        "403": 1,
+        "500": 2
+      }
+    }
+  ],
+  "detected_attacks": [
+    {
+      "attack_type": "SQLi",
+      "ip": "203.0.113.99",
+      "timestamp": "2026-09-27T18:32:00+03:00",
+      "request": "GET /search?q=1%27%20OR%201%3D1--",
+      "status": 403
+    },
+    {
+      "attack_type": "Directory Traversal",
+      "ip": "203.0.113.99",
+      "timestamp": "2026-09-27T18:34:00+03:00",
+      "request": "GET /../../etc/passwd",
+      "status": 404
+    },
+    {
+      "attack_type": "Directory Traversal",
+      "ip": "203.0.113.99",
+      "timestamp": "2026-09-27T18:36:00+03:00",
+      "request": "GET /download?file=../../../etc/shadow",
+      "status": 400
+    },
+    {
+      "attack_type": "XSS",
+      "ip": "203.0.113.99",
+      "timestamp": "2026-09-27T18:38:00+03:00",
+      "request": "GET /search?q=<script>alert(1)</script>",
+      "status": 403
+    },
+    {
+      "attack_type": "XSS",
+      "ip": "203.0.113.99",
+      "timestamp": "2026-09-27T18:40:00+03:00",
+      "request": "GET /comment?text=%3Cscript%3Ealert(1)%3C/script%3E",
+      "status": 500
+    }
+  ]
+}
