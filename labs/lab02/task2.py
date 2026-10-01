@@ -1,4 +1,4 @@
-"""Завдання 2 (Варіант 1): Аналізатор журналів веб-сервера (Nginx/Apache Access Log)."""
+#Завдання 2: Аналізатор журналів веб-сервера (Nginx/Apache Access Log)
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import csv
 import json
 import logging
 import re
-from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass
+from collections import Counter, defaultdict #розумні словники, які вміють рахувати к-сть
+from dataclasses import asdict, dataclass # швидкий спосіб ств класи-контейнери для даних
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
@@ -20,22 +20,26 @@ LOG_LINE_REGEX = re.compile(
     r"(?P<status>\d{3})\s+(?P<size>\d+|-)"
 )
 
-# Сигнатури базових атак (SQLi, Directory Traversal, XSS)
+# Словник з шаблонами, за якими ми будемо ловити хакерів
 ATTACK_PATTERNS: dict[str, re.Pattern[str]] = {
+    #SQLi: шукаємо команди баз даних (union select, drop table) або обманки (' OR 1=1)
     "SQLi": re.compile(
         r"(?:union\s+select|or\s+['\"]?1['\"]?\s*=\s*['\"]?1|'--|;\s*drop\s+table)",
         re.IGNORECASE,
     ),
+    # Directory Traversal: шукаємо спроби вийти з папки (../) або крадіжку файлу паролів Linux (/etc/passwd)
     "Directory Traversal": re.compile(
         r"(?:\.\./|\.\.\\|/etc/passwd|/etc/shadow)",
         re.IGNORECASE,
     ),
+    # XSS: шукаємо вставки JavaScript коду (тег <script>, alert тощо)
     "XSS": re.compile(
         r"(?:<script[^>]*>|javascript:|onerror\s*=|onload\s*=|alert\s*\()",
         re.IGNORECASE,
     ),
 }
-
+# Створюємо зручну "картку" для зберігання одного розібраного рядка з журналу.
+# frozen=True забороняє змінювати дані після їх запису сюди.
 
 @dataclass(frozen=True)
 class LogEntry:
@@ -47,35 +51,37 @@ class LogEntry:
     uri: str
     status: int
     size: int
-
+    # Ця властивість просто склеює метод (напр. GET) і шлях (напр. /index.html) для красивого виводу
     @property
     def request_line(self) -> str:
         """Повертає рядок запиту (HTTP-метод та URI)."""
         return f"{self.method} {self.uri}"
 
-
+# Картка для збереження інформації, якщо ми знайшли атаку.
 @dataclass(frozen=True)
 class AttackAlert:
     """Модель виявленої підозри на атаку."""
 
-    attack_type: str
-    ip: str
-    timestamp: str
-    request: str
-    status: int
+    attack_type: str #яка саме атака
+    ip: str # з якої айпішки
+    timestamp: str #коли
+    request: str #що саме намагалися зробити
+    status: int #що відповів сервер
 
 
 def parse_log_line(line: str) -> LogEntry | None:
-    """Розбирає рядок логу за допомогою регулярного виразу."""
+    #прикладаємо наш регулярний вираз до рядка
     match = LOG_LINE_REGEX.match(line.strip())
+    #якшо рядок не підходить до регулярного виразу-ігноруєм його
     if not match:
         return None
-
+    #витягує текстову дату і перетворюєм її на точний час
     raw_ts = match.group("timestamp")
     dt = datetime.strptime(raw_ts, "%d/%b/%Y:%H:%M:%S %z")
+    #витягує розмір
     raw_size = match.group("size")
     size = int(raw_size) if raw_size.isdigit() else 0
-
+    #пакуєм все, що витягли у нашу LogEntry і вертаєм її
     return LogEntry(
         ip=match.group("ip"),
         timestamp=dt,
@@ -85,14 +91,15 @@ def parse_log_line(line: str) -> LogEntry | None:
         size=size,
     )
 
-
+# Функція, яка перевіряє, чи є в запиті ознаки хакерської атаки
 def detect_attacks(entry: LogEntry) -> list[AttackAlert]:
-    """Шукає сигнатури SQLi, Directory Traversal та XSS у запиті."""
     decoded_uri = unquote(entry.uri)
     alerts: list[AttackAlert] = []
-
+    #перебирає всі шаблони атак
     for attack_type, pattern in ATTACK_PATTERNS.items():
+        #перевіряє чи є шкідливий код у сирому запиті або розкодованому
         if pattern.search(entry.uri) or pattern.search(decoded_uri):
+            #якщо є, то створюєм тривогу і додаєм у список 
             alerts.append(
                 AttackAlert(
                     attack_type=attack_type,
@@ -104,18 +111,21 @@ def detect_attacks(entry: LogEntry) -> list[AttackAlert]:
             )
     return alerts
 
-
+# функція, яка відкидає записи логів, якщо вони не потрапляють у вказаний час
 def filter_by_time(
     entries: list[LogEntry],
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> list[LogEntry]:
-    """Фільтрує записи логу за заданим часовим інтервалом."""
+    """Фільтрує записи логу за заданим часовим інтервалом"""
     filtered: list[LogEntry] = []
     for entry in entries:
+        # тимчасово прибираємо часовий пояс для простого порівняння часу
         entry_naive = entry.timestamp.replace(tzinfo=None)
+        # якщо запис стався раніше заданого старту, пропускаємо його
         if start_time is not None and entry_naive < start_time:
             continue
+        # Якщо запис стався пізніше заданого кінця — пропускаємо його
         if end_time is not None and entry_naive > end_time:
             continue
         filtered.append(entry)

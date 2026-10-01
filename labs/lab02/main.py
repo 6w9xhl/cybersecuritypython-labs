@@ -38,7 +38,6 @@ def run_demo() -> None:
         email="ghost@lpnu.ua",
         # password: str | None = None він автоматично стає None
     )
-
     # адмін без пароля
     ghost_admin = Admin(
         username="ghost_admin", email="admin.ghost@lpnu.ua", permissions=["read_logs"]
