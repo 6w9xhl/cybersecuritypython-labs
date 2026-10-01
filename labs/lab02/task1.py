@@ -21,6 +21,7 @@ EMAIL_REGEX = re.compile(
     r"^[a-zA-Z][a-zA-Z0-9_]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$"
 )
 
+
 # створення "картки працівника"
 class User:
     # це функція-будівельник. вона запускається автоматично, коли ми створюємо нового користувача
@@ -60,7 +61,7 @@ class User:
         self._email = value
 
     def set_password(self, password: str) -> None:
-        #Хешує пароль за допомогою PBKDF2-HMAC-SHA256 із випадковою сіллю
+        # Хешує пароль за допомогою PBKDF2-HMAC-SHA256 із випадковою сіллю
         if not isinstance(password, str) or len(password) < 4:
             raise ValueError("Пароль має бути рядком довжиною щонайменше 4 символи.")
         # генеруємо 16 байт солі

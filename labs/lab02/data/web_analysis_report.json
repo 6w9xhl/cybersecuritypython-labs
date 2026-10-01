@@ -34,23 +34,6 @@
         "403": 1,
         "500": 2
       }
-    },
-    {
-      "ip": "203.0.113.45",
-      "total_errors": 3,
-      "status_breakdown": {
-        "400": 1,
-        "403": 1,
-        "404": 1
-      }
-    },
-    {
-      "ip": "198.51.100.23",
-      "total_errors": 3,
-      "status_breakdown": {
-        "403": 2,
-        "404": 1
-      }
     }
   ],
   "detected_attacks": [
