@@ -128,10 +128,11 @@ def filter_by_time(
         # Якщо запис стався пізніше заданого кінця — пропускаємо його
         if end_time is not None and entry_naive > end_time:
             continue
+        # Якщо все ок, залишаємо запис
         filtered.append(entry)
     return filtered
 
-
+# Функція, яка зберігає фінальні результати у файл джейсон або ссв
 def export_report(
     output_path: Path,
     report_format: str,
@@ -140,26 +141,32 @@ def export_report(
     top_error_ips: list[dict[str, object]],
     alerts: list[AttackAlert],
 ) -> None:
-    """Експортує результати аналізу у файл формату JSON або CSV."""
+    # створення папки для звіту, якщо її ще немає
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
+    #якщо юзер захотів звіт у джейсон 
     if report_format == "json":
+        #складаєм всі дані в словник
         payload = {
             "total_entries": total_entries,
             "time_range": {"start": time_range[0], "end": time_range[1]},
             "top_error_ips": top_error_ips,
             "detected_attacks": [asdict(alert) for alert in alerts],
         }
+        #записуєм цей словник у файл у гарному вигляді
         output_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        #якщо юзер захотів звіт у вигляді таблиці
     elif report_format == "csv":
+        #відкриваєм файл для запису таблиці
         with output_path.open("w", newline="", encoding="utf-8") as csv_file:
+            #пишемо заголовки колонок
             writer = csv.writer(csv_file)
             writer.writerow(
                 ["category", "ip", "details", "status_or_count", "timestamp"]
             )
+            #пишем ынфу про айпі з помилками
             for item in top_error_ips:
                 writer.writerow(
                     [
@@ -170,6 +177,7 @@ def export_report(
                         "",
                     ]
                 )
+            #пишем інфу про знайдені атаки    
             for alert in alerts:
                 writer.writerow(
                     [
@@ -181,9 +189,10 @@ def export_report(
                     ]
                 )
     else:
+        #якшо вказали невідомий формат(кидаєм помилку)
         raise ValueError(f"Непідтримуваний формат звіту: {report_format}")
 
-
+#це головна функцыя( керує всім процесом від початку до кінця)
 def analyze_access_log(
     log_file: Path,
     output_file: Path,
@@ -193,29 +202,32 @@ def analyze_access_log(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> None:
-    """Виконує повний аналіз access.log, виводить статистику та зберігає звіт."""
+    #Виконує повний аналіз access.log, виводить статистику та зберігає звіт
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
     logger = logging.getLogger("access_log_analyzer")
-
+    # якщо файлу журналу немає на диску, повідомляємо про це і зупиняємо програму
     if not log_file.exists() or not log_file.is_file():
         logger.error("Файл логу не знайдено: %s", log_file)
         raise FileNotFoundError(f"Файл логу не знайдено: {log_file}")
 
     logger.info("Loading access log from %s...", log_file.as_posix())
-
+    # будемо зберігати всі розібрані рядки журналу
     entries: list[LogEntry] = []
+    # відкриває файл журналу і йдемо по ньому рядок за рядком
     with log_file.open("r", encoding="utf-8") as file:
         for line_num, line in enumerate(file, start=1):
-            if not line.strip():
+            if not line.strip(): #пропускаєм порожні рядки
                 continue
-            parsed = parse_log_line(line)
+            parsed = parse_log_line(line)#пробуєм розібрати рядок
             if parsed is None:
+                #якщо регулярний вираз не підійшов, пишем попередження, але продовжуєм роботу
                 logger.warning("Пропущено некоректний рядок #%d", line_num)
                 continue
+            #зберігаєм розібраний запис до списку
             entries.append(parsed)
-
+    #фільтруємо записи, якщо юзер вказав конкретний час
     entries = filter_by_time(entries, start_time=start_time, end_time=end_time)
-
+    #визначаєм, яким часовий проміжок охоплюють запис
     if entries:
         start_str = min(e.timestamp for e in entries).strftime("%Y-%m-%d %H:%M:%S")
         end_str = max(e.timestamp for e in entries).strftime("%Y-%m-%d %H:%M:%S")
@@ -237,17 +249,21 @@ def analyze_access_log(
         if entry.status >= min_status:
             error_ip_counter[entry.ip] += 1
             ip_status_breakdown[entry.ip][entry.status] += 1
+            # одночасно перевіряєм цей рядок на наявність хакерських атак
         detected_alerts.extend(detect_attacks(entry))
-
+    # .most_common(top_n) автоматично сортує IP за кількістю помилок і бере найкращих (найгірших)
     top_ips = error_ip_counter.most_common(top_n)
+    #виводить на екран топ айпі адрес з помилками
     print(f"\n=== Top-{top_n} IP Addresses with Error Statuses (4xx/5xx) ===")
     top_error_ips_data: list[dict[str, object]] = []
     for ip, total_err in top_ips:
         breakdown = ip_status_breakdown[ip]
+        #склеює статуси для красивого виводу
         breakdown_str = ", ".join(
             f"{code}: {count}" for code, count in sorted(breakdown.items())
         )
         print(f"{ip:<15} : {total_err} errors ({breakdown_str})")
+        #зберігаєм цю інфу, щоб потім записати у файл
         top_error_ips_data.append(
             {
                 "ip": ip,
@@ -255,7 +271,7 @@ def analyze_access_log(
                 "status_breakdown": dict(sorted(breakdown.items())),
             }
         )
-
+    #виводить на екран знайдені атаки
     print("\n=== Detected Attack Signatures ===")
     if not detected_alerts:
         print("Сигнатур атак не виявлено.")
@@ -267,6 +283,7 @@ def analyze_access_log(
             )
 
     print()
+    #зберігаэм всі результати у файл
     export_report(
         output_path=output_file,
         report_format=report_format.lower(),
