@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta
-from pathlib import Path
 import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from labs.lab02.task1 import (
     SESSION_TIMEOUT_SEC,
@@ -32,6 +32,27 @@ def run_demo() -> None:
         password="AdminSecret#99",
         permissions=["read_logs", "ban_ip"],
     )
+    # юзер без пароля
+    ghost_user = User(
+        username="ghost",
+        email="ghost@lpnu.ua",
+        # password: str | None = None він автоматично стає None
+    )
+
+    # адмін без пароля
+    ghost_admin = Admin(
+        username="ghost_admin", email="admin.ghost@lpnu.ua", permissions=["read_logs"]
+    )
+    # ак з пустим логом
+    ghost_account = UserAccount(user=ghost_user)
+    print("\n--- Експеримент: Користувачі без пароля ---")
+    print(f"Створено: {ghost_user}")
+    print(f"Створено: {ghost_admin}")
+
+    # Перевірка, чи заблокує система вхід для акаунта без пароля
+    ok_ghost_login = ghost_account.login("ghost", "any_password", "127.0.0.1")
+    print(f"Спроба входу без встановленого пароля: {ok_ghost_login}")
+
     print(f"Створено користувача: {user}")
     print(f"Створено адміністратора: {admin}\n")
 
@@ -158,12 +179,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "analyze":
         try:
             start_dt = (
-                datetime.strptime(args.start_time, "%Y-%m-%d %H:%M:%S")
+                datetime.strptime(args.start_time, "%Y-%m-%d %H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
                 if args.start_time
                 else None
             )
             end_dt = (
-                datetime.strptime(args.end_time, "%Y-%m-%d %H:%M:%S")
+                datetime.strptime(args.end_time, "%Y-%m-%d %H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
                 if args.end_time
                 else None
             )

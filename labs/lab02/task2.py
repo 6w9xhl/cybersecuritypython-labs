@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 import csv
-from dataclasses import asdict, dataclass
-from datetime import datetime
 import json
 import logging
-from pathlib import Path
 import re
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
 from urllib.parse import unquote
 
 # Регулярний вираз для парсингу рядків access.log

@@ -1,26 +1,30 @@
-"""Завдання 1: Модель користувача, сесії, журналу аудиту та облікового запису."""
+# завдання 1: Модель користувача, сесії, журналу аудиту та облікового запису
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import os
 import re
-from typing import Any
-#правила безпеки
-PBKDF2_ITERATIONS = 100_000#скільки разів алгоритм буде перемішувати пароль
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any, ClassVar
+
+# правила безпеки
+PBKDF2_ITERATIONS = 100_000  # скільки разів алгоритм буде перемішувати пароль
 SALT_SIZE_BYTES = 16
-SESSION_TIMEOUT_SEC = 900# 900 секунд (15 хвилин) — час, після якого неактивного користувача викине з системи.
-# шаблон, який каже комп'ютеру: "Пошта має виглядати як щось@щось.ком"
+SESSION_TIMEOUT_SEC = (
+    900  # 15 хвилин, час, після якого неактивного користувача викине з системи
+)
+# шаблон пошти щось@щось.ком
 EMAIL_REGEX = re.compile(
     r"^[a-zA-Z][a-zA-Z0-9._-]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$"
 )
 
-#створення "картки працівника"
+
+# створення "картки працівника"
 class User:
-# це функція-будівельник. вона запускається автоматично, коли ми створюємо нового користувача.
+    # це функція-будівельник. вона запускається автоматично, коли ми створюємо нового користувача
     def __init__(
         self,
         username: str,
@@ -29,7 +33,7 @@ class User:
         password: str | None = None,
         active: bool = True,
     ) -> None:
-        #перевірка, чи не є ім'я користувача порожнім рядком або рядком лише з пробілів.
+        # перевірка, чи не є ім'я користувача порожнім рядком або рядком лише з пробілів
         if not username or not username.strip():
             raise ValueError("Ім'я користувача не може бути порожнім.")
         self.username: str = username.strip()
@@ -44,23 +48,25 @@ class User:
 
     @property
     def email(self) -> str:
-        # дозволяє програмі просто прочитати пошту, коли хтось пише `user.email`
+        # дозволяє програмі просто прочитати пошту, коли хтось пише user.email
         return self._email
-    
-    # а це спрацює, коли хтось спробує змінити пошту: `user.email = "нова@пошта"`
+
+    # а це спрацює, коли хтось спробує змінити пошту(user.email = нова@пошта)
     @email.setter
     def email(self, value: str) -> None:
-        if not isinstance(value, str) or not EMAIL_REGEX.match(value):#перевіряємо чи взагалі це текст і звіряємо з нашим шаблоном
+        if not isinstance(value, str) or not EMAIL_REGEX.match(
+            value
+        ):  # перевіряємо чи взагалі це текст і звіряємо з нашим шаблоном
             raise ValueError(f"Некоректний формат email: '{value}'")
         self._email = value
 
     def set_password(self, password: str) -> None:
-        """Хешує пароль за допомогою PBKDF2-HMAC-SHA256 із випадковою сіллю"""
+        #Хешує пароль за допомогою PBKDF2-HMAC-SHA256 із випадковою сіллю
         if not isinstance(password, str) or len(password) < 4:
             raise ValueError("Пароль має бути рядком довжиною щонайменше 4 символи.")
-       # генеруємо 16 байт абсолютної випадковості (сіль)
+        # генеруємо 16 байт солі
         self.__password_salt = os.urandom(SALT_SIZE_BYTES)
-        # беремо пароль, перетворюємо на байти (utf-8), додаємо сіль і мішаємо 100 тисяч разів.
+        # беремо пароль, перетворюємо на байти, додаємо сіль і мішаємо 100 тисяч разів
         self.__password_hash = hashlib.pbkdf2_hmac(
             "sha256",
             password.encode("utf-8"),
@@ -69,10 +75,10 @@ class User:
         )
 
     def check_password(self, password: str) -> bool:
-        """Перевіряє пароль за допомогою безпечного порівняння hmac.compare_digest."""
+        """Перевіряє пароль за допомогою безпечного порівняння hmac.compare_digest"""
         if not self.__password_hash or not self.__password_salt:
             return False
-        # коли людина хоче зайти, ми беремо введений пароль, додаємо нашу сіль і мішаємо.
+        # коли людина хоче зайти, ми беремо введений пароль, додаємо нашу сіль і мішаємо
         candidate_hash = hashlib.pbkdf2_hmac(
             "sha256",
             password.encode("utf-8"),
@@ -83,7 +89,7 @@ class User:
         return hmac.compare_digest(self.__password_hash, candidate_hash)
 
     def deactivate(self) -> None:
-        """Деактивує обліковий запис користувача."""
+        """Деактивує обліковий запис користувача"""
         self.active = False
 
     def __str__(self) -> str:
@@ -93,6 +99,7 @@ class User:
             f"User(username='{self.username}', email='{self.email}', "
             f"role='{self.role}', status={status})"
         )
+
 
 # Директорська картка
 class Admin(User):
@@ -106,7 +113,7 @@ class Admin(User):
         permissions: list[str] | set[str] | None = None,
         active: bool = True,
     ) -> None:
-        #super() каже: клас User, налаштуй мені ім'я, пошту і пароль за своїми правилами
+        # super() каже: клас User, налаштуй мені ім'я, пошту і пароль за своїми правилами
         super().__init__(
             username=username,
             email=email,
@@ -114,8 +121,8 @@ class Admin(User):
             password=password,
             active=active,
         )
-       # записуємо права. Якщо нам передали якийсь список, робимо з нього унікальну множину (set).
-       # якщо нічого не передали, створюємо порожню множину set()
+        # записуємо права. Якщо нам передали якийсь список, робимо з нього унікальну множину (set).
+        # якщо нічого не передали, створюємо порожню множину set()
         self.permissions: set[str] = (
             set(permissions) if permissions is not None else set()
         )
@@ -135,7 +142,7 @@ class Admin(User):
 
     def has_permission(self, permission: str) -> bool:
         """Перевіряє наявність вказаного дозволу"""
-        #перевіряє, чи є слово у множині( тру або фолс)
+        # перевіряє, чи є слово у множині( тру або фолс)
         return permission.strip() in self.permissions
 
     def __str__(self) -> str:
@@ -148,7 +155,8 @@ class Admin(User):
             f"status={status}, permissions=[{perms}])"
         )
 
-#Таймер присутності
+
+# Таймер присутності
 class Session:
     """Клас користувацької сесії з контролем часу активності в UTC"""
 
@@ -156,7 +164,7 @@ class Session:
         # перевіряємо, чи вказали IP-адресу комп'ютера
         if not ip or not ip.strip():
             raise ValueError("IP-адреса сесії не може бути порожньою.")
-        now = datetime.now(timezone.utc)#записуємо точний світовий час
+        now = datetime.now(timezone.utc)  # записуємо точний світовий час
         # зберігаємо IP-адресу без зайвих пробілів.
         self.ip: str = ip.strip()
         # час заходу у систему
@@ -171,12 +179,12 @@ class Session:
 
     def is_active(self, timeout_sec: int) -> bool:
         """Перевіряє, чи не минув таймаут з моменту останньої активності"""
-        # Перевіряємо, щоб таймаут не був від'ємним або нулем 
+        # Перевіряємо, щоб таймаут не був від'ємним або нулем
         if timeout_sec <= 0:
             raise ValueError("Таймаут сесії (timeout_sec) має бути додатним числом.")
-        #дивимось котра зараз година
+        # дивимось котра зараз година
         now = datetime.now(timezone.utc)
-        # вВіднімаємо від "зараз" час останнього кліку. Якщо ця різниця менша або дорівнює 
+        # вВіднімаємо від "зараз" час останнього кліку. Якщо ця різниця менша або дорівнює
         # дозволеним 900 секундам — значить, сесія ще активна (повертаємо True)
         return (now - self.last_activity) <= timedelta(seconds=timeout_sec)
 
@@ -188,13 +196,15 @@ class Session:
         )
 
 
-@dataclass(frozen=True)# frozen=True означає, що цей запис "заморожений", його неможливо відредагувати після створення
+@dataclass(
+    frozen=True
+)  # frozen=True означає, що цей запис "заморожений", його неможливо відредагувати після створення
 class AuditEntry:
     """Запис у журналі аудиту"""
 
-    timestamp: datetime #коли 
-    username: str #хто
-    action: str #що
+    timestamp: datetime  # коли
+    username: str  # хто
+    action: str  # що
 
 
 class AuditLog:
@@ -207,7 +217,7 @@ class AuditLog:
     @property
     def entries(self) -> list[AuditEntry]:
         """Повертає копію списку записів аудиту"""
-        # ми не віддаємо оригінальний список, ми повертаємо його копію list(...) 
+        # ми не віддаємо оригінальний список, ми повертаємо його копію list(...)
         # щоб ніхто випадково не стер історію
         return list(self._entries)
 
@@ -230,15 +240,15 @@ class AuditLog:
             return
         # якщо записи є, перебираємо їх по одному
         for entry in self._entries:
-            #Рік-Місяць-День Година:Хвилина:Секунда
+            # Рік-Місяць-День Година:Хвилина:Секунда
             ts = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
             print(f"[{ts}] user='{entry.username}' | action='{entry.action}'")
 
-#Композиція
+
 class UserAccount:
     """Обліковий запис, що об'єднує User, Session та AuditLog (композиція)"""
 
-    _ALLOWED_KEYS: dict[str, type | tuple[type, ...]] = {
+    _ALLOWED_KEYS: ClassVar[dict[str, type | tuple[type, ...]]] = {
         "user": User,
         "session": (Session, type(None)),
         "audit_log": AuditLog,
@@ -246,9 +256,9 @@ class UserAccount:
 
     def __init__(
         self,
-        user: User,# обов'язково треба дати картку
-        session: Session | None = None,# таймера може поки не бути
-        audit_log: AuditLog | None = None,# журнал може бути свій, або створимо новий
+        user: User,  # обов'язково треба дати картку
+        session: Session | None = None,  # таймера може поки не бути
+        audit_log: AuditLog | None = None,  # журнал може бути свій, або створимо новий
     ) -> None:
         # перевіряємо, чи нам дали саме ті об'єкти, які ми просили (захист від помилок)
         if not isinstance(user, User):
@@ -301,6 +311,7 @@ class UserAccount:
             self.session = None
             # Записуємо в журнал подію виходу.
             self.audit_log.add_log(self.user.username, "logout")
+
     # Спеціальний метод, який дозволяє писати account["user"] замість account.user.
     def __getitem__(self, key: str) -> Any:
         # Якщо хтось просить ключ, якого немає в нашому списку дозволених (наприклад, секретний пароль):
@@ -308,7 +319,8 @@ class UserAccount:
             raise KeyError(f"Невідомий або заборонений ключ: '{key}'")
         # Віддаємо потрібний атрибут.
         return getattr(self, key)
-    #Спеціальний метод для запису: account["session"] = нова_сесія.
+
+    # Спеціальний метод для запису: account["session"] = нова_сесія.
     def __setitem__(self, key: str, value: Any) -> None:
         # Перевіряємо, чи дозволено змінювати цей ключ.
         if key not in self._ALLOWED_KEYS:
@@ -322,5 +334,3 @@ class UserAccount:
             )
         # Якщо все ок, оновлюємо значення.
         setattr(self, key, value)
-
-
