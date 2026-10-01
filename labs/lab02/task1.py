@@ -18,9 +18,8 @@ SESSION_TIMEOUT_SEC = (
 )
 # шаблон пошти щось@щось.ком
 EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z][a-zA-Z0-9._-]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$"
+    r"^[a-zA-Z][a-zA-Z0-9_]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$"
 )
-
 
 # створення "картки працівника"
 class User:
