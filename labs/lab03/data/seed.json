@@ -1,0 +1,65 @@
+{
+  "categories": [
+    {"id": 1, "name": "web"},
+    {"id": 2, "name": "api"},
+    {"id": 3, "name": "database"}
+  ],
+  "records": [
+    {
+      "code": "V01-01",
+      "title": "Знахідка вебаудиту 01",
+      "category_id": 1,
+      "value": 9.1,
+      "status": "new"
+    },
+    {
+      "code": "V01-02",
+      "title": "Знахідка вебаудиту 02",
+      "category_id": 2,
+      "value": 5.4,
+      "status": "in_progress"
+    },
+    {
+      "code": "V01-03",
+      "title": "Знахідка вебаудиту 03",
+      "category_id": 3,
+      "value": 3.2,
+      "status": "done"
+    },
+    {
+      "code": "V01-04",
+      "title": "Знахідка вебаудиту 04",
+      "category_id": 1,
+      "value": 7.5,
+      "status": "new"
+    },
+    {
+      "code": "V01-05",
+      "title": "Знахідка вебаудиту 05",
+      "category_id": 2,
+      "value": 8.0,
+      "status": "done"
+    },
+    {
+      "code": "V01-06",
+      "title": "Знахідка вебаудиту 06",
+      "category_id": 3,
+      "value": 2.4,
+      "status": "in_progress"
+    },
+    {
+      "code": "V01-07",
+      "title": "Знахідка вебаудиту 07",
+      "category_id": 1,
+      "value": 6.3,
+      "status": "done"
+    },
+    {
+      "code": "V01-08",
+      "title": "Знахідка вебаудиту 08",
+      "category_id": 2,
+      "value": 7.1,
+      "status": "new"
+    }
+  ]
+}
