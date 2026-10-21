@@ -1,14 +1,21 @@
 """FastAPI-додаток: Реєстр вразливостей вебзастосунку (Лабораторна робота №3)."""
 
+import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 
 from labs.lab03 import database
 from labs.lab03.config import APP_DESCRIPTION, APP_TITLE
 from labs.lab03.routers import categories, records
 from shared.student import get_student_info
+
+logger = logging.getLogger(__name__)
+
+DATABASE_ERROR_DETAIL = "Внутрішня помилка роботи з базою даних. Спробуйте пізніше."
 
 
 @asynccontextmanager
@@ -27,7 +34,7 @@ app = FastAPI(
     lifespan=lifespan,
     contact={
         "name": "Cybersecurity Python Labs",
-        "url": "https://github.com/example/cybersecurity-python-labs",
+        "url": "https://github.com/6w9xhl/cybersecuritypython-labs",
     },
     license_info={
         "name": "MIT",
@@ -38,6 +45,26 @@ app = FastAPI(
 # Підключаємо маршрутизатори
 app.include_router(categories.router)
 app.include_router(records.router)
+
+
+@app.exception_handler(sqlite3.Error)
+async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResponse:
+    """Перетворити неочікувану помилку SQLite на зрозумілу відповідь 500.
+
+    Технічні деталі (наприклад, OperationalError через блокування бази) записуються
+    в журнал, а клієнт не отримує SQL-команд, файлових шляхів і трасування стека.
+    """
+    logger.error(
+        "Помилка SQLite під час %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": DATABASE_ERROR_DETAIL},
+    )
 
 
 @app.get(

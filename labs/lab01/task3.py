@@ -65,7 +65,7 @@ def log_event(func):
             # читаємо існуючі логи, якщо файл є
             if os.path.exists(LOG_FILE):
                 try:
-                    with open(LOG_FILE, mode="r", encoding="utf-8") as lf:
+                    with open(LOG_FILE, encoding="utf-8") as lf:
                         logs = json.load(lf)  # зчитує вміст файлу у змінну logs
                 except (OSError, json.JSONDecodeError):
                     pass
@@ -114,7 +114,7 @@ def login(username: str, password: str) -> bool:
     if not username or not username.strip() or not password or not password.strip():
         raise ValueError("Логін або пароль порожні")
 
-    with open(CSV_FILE, mode="r", encoding="utf-8") as f:
+    with open(CSV_FILE, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         users_db = list(reader)  # перетворює на список словників
 
@@ -151,7 +151,7 @@ def main():
         print("Базу успішно створено (users.csv)\n")
 
         print("Зміст бази даних:")
-        with open(CSV_FILE, mode="r", encoding="utf-8") as f:
+        with open(CSV_FILE, encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
             print(f"{header[0]:<15} | {header[1]}")
