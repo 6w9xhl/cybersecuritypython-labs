@@ -1,8 +1,53 @@
+"""Параметризовані SQL-запити до таблиць categories і records."""
+
+import logging
 import sqlite3
 from contextlib import closing
 from typing import Any
 
 from labs.lab03.database import get_connection
+
+logger = logging.getLogger(__name__)
+
+RECORD_SELECT = """
+    SELECT r.id, r.code, r.title, r.category_id, c.name, r.value, r.status
+    FROM records r
+    JOIN categories c ON r.category_id = c.id
+"""
+
+
+class CategoryNotFoundError(Exception):
+    """Категорії з вказаним id не існує."""
+
+
+class DuplicateError(ValueError):
+    """Порушено унікальність або інше обмеження даних."""
+
+
+def _row_to_record(row: tuple[Any, ...]) -> dict[str, Any]:
+    """Перетворює рядок вибірки на словник запису."""
+    return {
+        "id": row[0],
+        "code": row[1],
+        "title": row[2],
+        "category_id": row[3],
+        "category_name": row[4],
+        "value": row[5],
+        "status": row[6],
+    }
+
+
+def _category_exists(connection: sqlite3.Connection, category_id: int) -> bool:
+    """Перевіряє існування категорії в межах поточної транзакції."""
+    row = connection.execute("SELECT 1 FROM categories WHERE id = ?", (category_id,)).fetchone()
+    return row is not None
+
+
+def _fetch_record(connection: sqlite3.Connection, record_id: int) -> dict[str, Any] | None:
+    """Читає один запис із назвою категорії через наявне з'єднання."""
+    row = connection.execute(RECORD_SELECT + " WHERE r.id = ?", (record_id,)).fetchone()
+    return _row_to_record(row) if row else None
+
 
 # --- РОБОТА З КАТЕГОРІЯМИ ---
 
@@ -11,67 +56,50 @@ def get_categories() -> list[dict[str, Any]]:
     """Повертає список усіх категорій, відсортованих за id."""
     with closing(get_connection()) as connection:
         cursor = connection.execute("SELECT id, name FROM categories ORDER BY id ASC")
-        rows = cursor.fetchall()
-        return [{"id": row[0], "name": row[1]} for row in rows]
+        return [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
 def create_category(name: str) -> dict[str, Any]:
     """Створює нову категорію."""
+    clean_name = name.strip()
     with closing(get_connection()) as connection:
         try:
             with connection:
                 cursor = connection.execute(
-                    "INSERT INTO categories (name) VALUES (?)", (name.strip(),)
+                    "INSERT INTO categories (name) VALUES (?)", (clean_name,)
                 )
                 category_id = cursor.lastrowid
-            return {"id": category_id, "name": name.strip()}
         except sqlite3.IntegrityError as exc:
-            raise ValueError(f"Категорія з такою назвою вже існує: {name}") from exc
+            logger.warning("Не вдалося створити категорію: %s", exc)
+            raise ValueError("Категорія з такою назвою вже існує.") from exc
+    return {"id": category_id, "name": clean_name}
 
 
 def delete_category(category_id: int) -> bool:
     """Видаляє порожню категорію. Повертає True, якщо видалено."""
     with closing(get_connection()) as connection:
-        with connection:
-            # Перевіряємо, чи є записи в цій категорії
-            cursor = connection.execute(
-                "SELECT COUNT(*) FROM records WHERE category_id = ?", (category_id,)
-            )
-            count = cursor.fetchone()[0]
-            if count > 0:
-                raise ValueError("Неможливо видалити категорію, яка містить записи.")
+        try:
+            with connection:
+                count = connection.execute(
+                    "SELECT COUNT(*) FROM records WHERE category_id = ?", (category_id,)
+                ).fetchone()[0]
+                if count > 0:
+                    raise ValueError("Неможливо видалити категорію, яка містить записи.")
+                cursor = connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+                return cursor.rowcount > 0
+        except sqlite3.IntegrityError as exc:
+            # Запис міг з'явитися між перевіркою COUNT і DELETE (ON DELETE RESTRICT).
+            logger.warning("Видалення категорії відхилено обмеженням: %s", exc)
+            raise ValueError("Неможливо видалити категорію, яка містить записи.") from exc
 
-            cursor = connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
-            return cursor.rowcount > 0
 
-
-# --- РОБОТА З ВРАЗЛИВОСТЯМИ / ЗАПИСАМИ ---
+# --- РОБОТА ІЗ ЗАПИСАМИ ---
 
 
 def get_record_by_id(record_id: int) -> dict[str, Any] | None:
     """Отримує один запис за id разом із назвою категорії (JOIN)."""
     with closing(get_connection()) as connection:
-        cursor = connection.execute(
-            """
-            SELECT r.id, r.code, r.title, r.category_id, c.name, r.value, r.status
-            FROM records r
-            JOIN categories c ON r.category_id = c.id
-            WHERE r.id = ?
-            """,
-            (record_id,),
-        )
-        row = cursor.fetchone()
-        if not row:
-            return None
-        return {
-            "id": row[0],
-            "code": row[1],
-            "title": row[2],
-            "category_id": row[3],
-            "category_name": row[4],
-            "value": row[5],
-            "status": row[6],
-        }
+        return _fetch_record(connection, record_id)
 
 
 def get_records(
@@ -83,12 +111,7 @@ def get_records(
     offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Повертає список записів із фільтрами, сортуванням та пагінацією."""
-    query = """
-        SELECT r.id, r.code, r.title, r.category_id, c.name, r.value, r.status
-        FROM records r
-        JOIN categories c ON r.category_id = c.id
-        WHERE 1=1
-    """
+    query = RECORD_SELECT + " WHERE 1=1"
     params: list[Any] = []
 
     if category_id is not None:
@@ -104,7 +127,7 @@ def get_records(
         params.append(min_value)
 
     if q is not None:
-        # Буквальний пошук підрядка згідно з методичкою (instr > 0)
+        # Буквальний пошук підрядка з урахуванням регістру (% та _ не є шаблонами).
         query += " AND instr(r.title, ?) > 0"
         params.append(q)
 
@@ -112,20 +135,8 @@ def get_records(
     params.extend([limit, offset])
 
     with closing(get_connection()) as connection:
-        cursor = connection.execute(query, params)
-        rows = cursor.fetchall()
-        return [
-            {
-                "id": row[0],
-                "code": row[1],
-                "title": row[2],
-                "category_id": row[3],
-                "category_name": row[4],
-                "value": row[5],
-                "status": row[6],
-            }
-            for row in rows
-        ]
+        rows = connection.execute(query, params).fetchall()
+    return [_row_to_record(row) for row in rows]
 
 
 def create_record(
@@ -135,10 +146,17 @@ def create_record(
     value: float,
     status: str,
 ) -> dict[str, Any]:
-    """Створює новий запис."""
+    """Створює новий запис.
+
+    Raises:
+        CategoryNotFoundError: категорії не існує.
+        DuplicateError: код запису вже використовується або порушено обмеження.
+    """
     with closing(get_connection()) as connection:
         try:
             with connection:
+                if not _category_exists(connection, category_id):
+                    raise CategoryNotFoundError(category_id)
                 cursor = connection.execute(
                     """
                     INSERT INTO records (code, title, category_id, value, status)
@@ -147,10 +165,13 @@ def create_record(
                     (code.strip(), title.strip(), category_id, value, status),
                 )
                 new_id = cursor.lastrowid
-            return get_record_by_id(new_id)  # type: ignore
+                created = _fetch_record(connection, new_id)
         except sqlite3.IntegrityError as exc:
-            msg = "Порушення обмежень (можливо, дублікат code або неіснуюча категорія)"
-            raise ValueError(f"{msg}: {exc}") from exc
+            logger.warning("Порушення обмежень при створенні запису: %s", exc)
+            raise DuplicateError("Запис із таким кодом уже існує.") from exc
+    if created is None:
+        raise RuntimeError("Не вдалося прочитати створений запис.")
+    return created
 
 
 def update_record(
@@ -161,11 +182,20 @@ def update_record(
     value: float,
     status: str,
 ) -> dict[str, Any] | None:
-    """Повністю оновлює змінювані поля запису за id."""
+    """Повністю оновлює змінювані поля запису. Повертає None, якщо запису немає.
+
+    Raises:
+        CategoryNotFoundError: категорії не існує.
+        DuplicateError: код запису вже використовується іншим записом.
+    """
     with closing(get_connection()) as connection:
         try:
             with connection:
-                cursor = connection.execute(
+                if _fetch_record(connection, record_id) is None:
+                    return None
+                if not _category_exists(connection, category_id):
+                    raise CategoryNotFoundError(category_id)
+                connection.execute(
                     """
                     UPDATE records
                     SET code = ?, title = ?, category_id = ?, value = ?, status = ?
@@ -173,11 +203,10 @@ def update_record(
                     """,
                     (code.strip(), title.strip(), category_id, value, status, record_id),
                 )
-                if cursor.rowcount == 0:
-                    return None
-            return get_record_by_id(record_id)
+                return _fetch_record(connection, record_id)
         except sqlite3.IntegrityError as exc:
-            raise ValueError(f"Порушення обмежень при оновленні: {exc}") from exc
+            logger.warning("Порушення обмежень при оновленні запису: %s", exc)
+            raise DuplicateError("Запис із таким кодом уже існує.") from exc
 
 
 def delete_record(record_id: int) -> bool:
@@ -188,29 +217,25 @@ def delete_record(record_id: int) -> bool:
             return cursor.rowcount > 0
 
 
-def create_records_bulk(
-    records_data: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Пакетно додає записи в межах однієї транзакції."""
-    select_sql = """
-        SELECT r.id, r.code, r.title, r.category_id,
-               c.name, r.value, r.status
-        FROM records r
-        JOIN categories c ON r.category_id = c.id
-        WHERE r.id = ?
+def create_records_bulk(records_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Пакетно додає записи в межах однієї транзакції (все або нічого).
+
+    Raises:
+        CategoryNotFoundError: хоча б одного посилання на категорію не існує.
+        DuplicateError: дублікат code у пакеті або в базі.
     """
-
     with closing(get_connection()) as connection:
-        created_ids: list[int] = []
-
         try:
             with connection:
+                for category_id in sorted({item["category_id"] for item in records_data}):
+                    if not _category_exists(connection, category_id):
+                        raise CategoryNotFoundError(category_id)
+
+                created_ids: list[int] = []
                 for item in records_data:
                     cursor = connection.execute(
                         """
-                        INSERT INTO records (
-                            code, title, category_id, value, status
-                        )
+                        INSERT INTO records (code, title, category_id, value, status)
                         VALUES (?, ?, ?, ?, ?)
                         """,
                         (
@@ -223,29 +248,13 @@ def create_records_bulk(
                     )
                     created_ids.append(cursor.lastrowid)
 
-                created_records = []
-
+                created_records: list[dict[str, Any]] = []
                 for record_id in created_ids:
-                    row = connection.execute(
-                        select_sql,
-                        (record_id,),
-                    ).fetchone()
-
-                    if row is None:
+                    record = _fetch_record(connection, record_id)
+                    if record is None:
                         raise RuntimeError("Не вдалося прочитати створений запис.")
-
-                    created_records.append(
-                        {
-                            "id": row[0],
-                            "code": row[1],
-                            "title": row[2],
-                            "category_id": row[3],
-                            "category_name": row[4],
-                            "value": row[5],
-                            "status": row[6],
-                        }
-                    )
+                    created_records.append(record)
         except sqlite3.IntegrityError as exc:
-            raise ValueError(f"Порушення обмежень (можливо, дублікат code): {exc}") from exc
-
-        return created_records
+            logger.warning("Пакет скасовано через порушення обмежень: %s", exc)
+            raise DuplicateError("Пакет скасовано: дублікат коду запису.") from exc
+    return created_records
