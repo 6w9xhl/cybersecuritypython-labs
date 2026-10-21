@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from labs.lab03.config import VALUE_MAX, VALUE_MIN
 
+RecordStatus = Literal["new", "in_progress", "done"]
+
 
 class CategoryCreate(BaseModel):
     """Модель створення категорії."""
@@ -66,7 +68,7 @@ class RecordCreate(BaseModel):
         examples=[7.5],
     )
 
-    status: Literal["new", "in_progress", "done"] = Field(
+    status: RecordStatus = Field(
         description="Стан опрацювання знахідки",
         examples=["new"],
     )
