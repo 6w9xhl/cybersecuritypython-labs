@@ -1,22 +1,85 @@
+"""Початкове заповнення бази навчальними даними з data/seed.json."""
+
 import json
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from typing import Any
 
-from labs.lab03.database import get_connection
+from labs.lab03.config import VALUE_MAX, VALUE_MIN
+from labs.lab03.database import get_connection, initialize_database
 
 BASE_DIR = Path(__file__).resolve().parent
 SEED_DATA_PATH = BASE_DIR / "data" / "seed.json"
 
+ALLOWED_STATUSES = {"new", "in_progress", "done"}
+
+
+def _is_int(value: Any) -> bool:
+    """Перевіряє, що значення є цілим числом (bool не вважається)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_number(value: Any) -> bool:
+    """Перевіряє, що значення є числом (bool не вважається)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def validate_seed_data(data: Any) -> str | None:
+    """Перевіряє структуру та значення seed.json. Повертає текст помилки або None."""
+    if not isinstance(data, dict):
+        return "коренем seed.json має бути JSON-об'єкт."
+
+    categories = data.get("categories")
+    records = data.get("records")
+    if not isinstance(categories, list) or len(categories) != 3:
+        return "seed.json має містити рівно 3 категорії."
+    if not isinstance(records, list) or len(records) != 8:
+        return "seed.json має містити рівно 8 записів."
+
+    category_ids: set[int] = set()
+    category_names: set[str] = set()
+    for cat in categories:
+        if not isinstance(cat, dict) or not {"id", "name"}.issubset(cat):
+            return "некоректна структура категорії (потрібні id та name)."
+        if not _is_int(cat["id"]) or cat["id"] <= 0:
+            return f"id категорії має бути додатним цілим: {cat['id']!r}."
+        if not isinstance(cat["name"], str) or not 2 <= len(cat["name"].strip()) <= 40:
+            return f"назва категорії має містити 2-40 символів: {cat['name']!r}."
+        if cat["id"] in category_ids or cat["name"] in category_names:
+            return f"дублікат категорії: {cat['name']!r}."
+        category_ids.add(cat["id"])
+        category_names.add(cat["name"])
+
+    codes: set[str] = set()
+    for rec in records:
+        required = {"code", "title", "category_id", "value", "status"}
+        if not isinstance(rec, dict) or not required.issubset(rec):
+            return "некоректна структура запису (потрібні code, title, category_id, value, status)."
+        if "id" in rec:
+            return "запис у seed.json не повинен містити id."
+        if not isinstance(rec["code"], str) or not 3 <= len(rec["code"].strip()) <= 40:
+            return f"code має містити 3-40 символів: {rec['code']!r}."
+        if not isinstance(rec["title"], str) or not 3 <= len(rec["title"].strip()) <= 120:
+            return f"title має містити 3-120 символів у записі {rec['code']!r}."
+        if rec["code"] in codes:
+            return f"дублікат code у seed.json: {rec['code']!r}."
+        codes.add(rec["code"])
+        if rec["category_id"] not in category_ids:
+            return f"запис {rec['code']!r} посилається на неіснуючу категорію."
+        if not _is_number(rec["value"]) or not VALUE_MIN <= rec["value"] <= VALUE_MAX:
+            return f"value поза межами {VALUE_MIN}-{VALUE_MAX} у записі {rec['code']!r}."
+        if rec["status"] not in ALLOWED_STATUSES:
+            return f"недопустимий статус у записі {rec['code']!r}: {rec['status']!r}."
+    return None
+
 
 def seed_database() -> None:
-    """Заповнює базу даних початковими даними з seed.json в одній транзакції."""
+    """Заповнює порожню базу початковими даними в одній транзакції."""
     if not SEED_DATA_PATH.exists():
-        print(f"Помилка: Файл {SEED_DATA_PATH} не знайдено.")
+        print(f"Помилка: файл {SEED_DATA_PATH} не знайдено.")
         return
 
-    # Читаємо дані з JSON-файлу
-    # Читаємо дані з JSON-файлу
     try:
         with SEED_DATA_PATH.open("r", encoding="utf-8") as file:
             data = json.load(file)
@@ -24,87 +87,56 @@ def seed_database() -> None:
         print(f"Не вдалося прочитати seed.json: {exc}")
         return
 
-    if not isinstance(data, dict):
-        print("Помилка: коренем seed.json має бути JSON-об'єкт.")
+    error = validate_seed_data(data)
+    if error:
+        print(f"Помилка в seed.json: {error}")
         return
 
-    categories = data.get("categories")
-    records = data.get("records")
+    categories = data["categories"]
+    records = data["records"]
 
-    if (
-        not isinstance(categories, list)
-        or len(categories) != 3
-        or not isinstance(records, list)
-        or len(records) != 8
-    ):
-        print("Помилка: seed.json має містити 3 категорії та 8 записів.")
-        return
+    try:
+        # Таблиці створюються до транзакції заповнення, наявні дані не змінюються.
+        initialize_database()
 
-    required_category_keys = {"id", "name"}
-    required_record_keys = {
-        "code",
-        "title",
-        "category_id",
-        "value",
-        "status",
-    }
-
-    if any(
-        not isinstance(item, dict) or not required_category_keys.issubset(item)
-        for item in categories
-    ):
-        print("Помилка: некоректна структура категорій у seed.json.")
-        return
-
-    if any(
-        not isinstance(item, dict) or not required_record_keys.issubset(item) for item in records
-    ):
-        print("Помилка: некоректна структура записів у seed.json.")
-        return
-
-    with closing(get_connection()) as connection:
-        try:
-            # Починаємо транзакцію для пакета змін
+        with closing(get_connection()) as connection:
             with connection:
-                # 1. Перевіряємо, чи база вже заповнена (чи існують категорії)
-                cursor = connection.execute("SELECT COUNT(*) FROM categories")
-                if cursor.fetchone()[0] > 0:
+                categories_count = connection.execute(
+                    "SELECT COUNT(*) FROM categories"
+                ).fetchone()[0]
+                records_count = connection.execute(
+                    "SELECT COUNT(*) FROM records"
+                ).fetchone()[0]
+                if categories_count > 0 or records_count > 0:
                     print("База вже містить дані. Заповнення скасовано, щоб уникнути дублікатів.")
                     return
 
-                # 2. Додаємо категорії (id, name)
                 connection.executemany(
                     "INSERT INTO categories (id, name) VALUES (?, ?)",
-                    [(cat["id"], cat["name"]) for cat in categories],
+                    [(cat["id"], cat["name"].strip()) for cat in categories],
                 )
-
-                # 3. Додаємо записи (без id, бо база генерує його сама)
-                # Використовуємо параметризовані запити (?) для захисту від ін'єкцій
-                records_values = [
-                    (
-                        rec["code"],
-                        rec["title"],
-                        rec["category_id"],
-                        rec["value"],
-                        rec["status"],
-                    )
-                    for rec in records
-                ]
                 connection.executemany(
                     """
                     INSERT INTO records (code, title, category_id, value, status)
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    records_values,
+                    [
+                        (
+                            rec["code"].strip(),
+                            rec["title"].strip(),
+                            rec["category_id"],
+                            rec["value"],
+                            rec["status"],
+                        )
+                        for rec in records
+                    ],
                 )
-
-            print(f"Успішно додано {len(categories)} категорії та {len(records)} записів.")
-
-        except sqlite3.IntegrityError as e:
-            # Транзакція автоматично скасовується контекстним менеджером 'with connection:'
-            print(f"Помилка цілісності даних (наприклад, дублікат): {e}")
-        except sqlite3.Error as e:
-            print(f"Сталася помилка бази даних під час заповнення: {e}")
+        print(f"Успішно додано {len(categories)} категорії та {len(records)} записів.")
+    except sqlite3.IntegrityError as exc:
+        # Контекстний менеджер with connection уже скасував усі зміни пакета.
+        print(f"Помилка цілісності даних, пакет скасовано: {exc}")
+    except sqlite3.Error as exc:
+        print(f"Помилка бази даних під час заповнення, пакет скасовано: {exc}")
 
 
 if __name__ == "__main__":
