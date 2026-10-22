@@ -1,11 +1,17 @@
+-- схема бази: дві таблиці й усі обмеження. виконується з database.initialize_database()
+
+-- вмикає перевірку зовнішніх ключів для цього з'єднання
 PRAGMA foreign_keys = ON;
+-- початок транзакції: обидві таблиці створяться разом, а при помилці не створиться жодна
 BEGIN TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY CHECK (id > 0),
     name TEXT NOT NULL UNIQUE
+     -- довжина назви після обрізання пробілів по краях (trim) має бути від 2 до 40 символів
     CHECK (length(trim(name)) BETWEEN 2 AND 40)
 );
+
 
 CREATE TABLE IF NOT EXISTS records (
     id INTEGER PRIMARY KEY CHECK (id > 0),

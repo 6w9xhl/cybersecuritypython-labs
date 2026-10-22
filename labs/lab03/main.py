@@ -36,10 +36,6 @@ app = FastAPI(
         "name": "Cybersecurity Python Labs",
         "url": "https://github.com/6w9xhl/cybersecuritypython-labs",
     },
-    license_info={
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/MIT",
-    },
 )
 
 # Підключаємо маршрутизатори

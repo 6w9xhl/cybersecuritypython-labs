@@ -18,9 +18,8 @@ def get_connection() -> sqlite3.Connection:
         connection.close()
         raise
 
-
+    """Створити таблиці за готовим SQL-скриптом.нічого не повертає"""
 def initialize_database() -> None:
-    """Створити таблиці за готовим SQL-скриптом."""
     script = SCHEMA_PATH.read_text(encoding="utf-8")
     with closing(get_connection()) as connection:
         try:

@@ -20,12 +20,11 @@ router = APIRouter(
     description="Повертає всі категорії, відсортовані за зростанням id.",
 )
 def read_categories() -> list[dict[str, Any]]:
-    """Повертає список категорій."""
     return repository.get_categories()
 
 
 @router.post(
-    "",
+    "",    
     response_model=CategoryRead,
     status_code=status.HTTP_201_CREATED,
     responses={
@@ -35,7 +34,6 @@ def read_categories() -> list[dict[str, Any]]:
     description="Створює нову категорію з унікальною назвою.",
 )
 def create_category(payload: CategoryCreate) -> dict[str, Any]:
-    """Створює категорію та повертає її дані."""
     try:
         return repository.create_category(payload.name)
     except ValueError as exc:
@@ -62,7 +60,6 @@ def remove_category(
         description="Додатний ідентифікатор категорії.",
     ),
 ) -> Response:
-    """Видаляє порожню категорію."""
     try:
         deleted = repository.delete_category(category_id)
     except ValueError as exc:
