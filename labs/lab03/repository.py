@@ -148,9 +148,11 @@ def create_record(
 ) -> dict[str, Any]:
     """Створює новий запис.
 
-    Raises:
+    Raises
+    ------
         CategoryNotFoundError: категорії не існує.
         DuplicateError: код запису вже використовується або порушено обмеження.
+
     """
     with closing(get_connection()) as connection:
         try:
@@ -184,9 +186,11 @@ def update_record(
 ) -> dict[str, Any] | None:
     """Повністю оновлює змінювані поля запису. Повертає None, якщо запису немає.
 
-    Raises:
+    Raises
+    ------
         CategoryNotFoundError: категорії не існує.
         DuplicateError: код запису вже використовується іншим записом.
+
     """
     with closing(get_connection()) as connection:
         try:
@@ -220,9 +224,11 @@ def delete_record(record_id: int) -> bool:
 def create_records_bulk(records_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Пакетно додає записи в межах однієї транзакції (все або нічого).
 
-    Raises:
+    Raises
+    ------
         CategoryNotFoundError: хоча б одного посилання на категорію не існує.
         DuplicateError: дублікат code у пакеті або в базі.
+
     """
     with closing(get_connection()) as connection:
         try:

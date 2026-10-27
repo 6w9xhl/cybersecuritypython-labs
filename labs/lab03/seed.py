@@ -1,7 +1,8 @@
-"""Початкове заповнення бази навчальними даними з data/seed.json"""
+"""Початкове заповнення бази навчальними даними з data/seed.json."""
 
 import json
 import sqlite3
+
 # closing — гарантоване закриття з'єднання після блоку with
 from contextlib import closing
 from pathlib import Path
@@ -15,20 +16,25 @@ SEED_DATA_PATH = BASE_DIR / "data" / "seed.json"
 
 ALLOWED_STATUSES = {"new", "in_progress", "done"}
 
+
 # допоміжна ф-я(чи є значення цілим числом
 def _is_int(value: Any) -> bool:
-    # isinstance перевіряє тип; у Python bool є підкласом int, тому True/False окремо виключаємо умовою and not
+# isinstance перевіряє тип; у Python bool є підкласом int,
+# тому True/False окремо виключаємо умовою and not
     return isinstance(value, int) and not isinstance(value, bool)
+
 
 # чи є значення числом(цілим або дробовим)
 def _is_number(value: Any) -> bool:
     # допускаємо і int, і float; bool знову виключаємо
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+   return isinstance(value, int | float) and not isinstance(value, bool)
 
-# головна функція перевірки структури seed.json. Повертає текст помилки (str) або None, якщо все гаразд (запис «str | None»)
+# головна функція перевірки структури seed.json.
+# Повертає текст помилки (str) або None, якщо все гаразд
 def validate_seed_data(data: Any) -> str | None:
+    """Перевірити структуру та валідність початкових даних із seed.json."""
     if not isinstance(data, dict):
-         # якщо корінь джейсон — не словник — це помилка.
+        # якщо корінь джейсон — не словник — це помилка.
         return "коренем seed.json має бути JSON-об'єкт."
     # беремо зі словника масив категорій
     categories = data.get("categories")
@@ -40,7 +46,7 @@ def validate_seed_data(data: Any) -> str | None:
     # записів має бути рівно 8 і це має бути список
     if not isinstance(records, list) or len(records) != 8:
         return "seed.json має містити рівно 8 записів."
-     # множина id і назв категорій, які вже зустрілися (для перевірки унікальності)
+    # множина id і назв категорій, які вже зустрілися (для перевірки унікальності)
     category_ids: set[int] = set()
     category_names: set[str] = set()
     # перебираємо кожну категорію з масиву
@@ -85,13 +91,15 @@ def validate_seed_data(data: Any) -> str | None:
         # category_id запису має належати до id категорій, які ми зібрали вище
         if rec["category_id"] not in category_ids:
             return f"запис {rec['code']!r} посилається на неіснуючу категорію."
-        # value має бути числом у межах від VALUE_MIN до VALUE_MAX (ланцюжкове порівняння a <= x <= b)
+# value має бути числом у межах від VALUE_MIN до VALUE_MAX
+# (ланцюжкове порівняння a <= x <= b)
         if not _is_number(rec["value"]) or not VALUE_MIN <= rec["value"] <= VALUE_MAX:
             return f"value поза межами {VALUE_MIN}-{VALUE_MAX} у записі {rec['code']!r}."
         # status має входити до множини допустимих
         if rec["status"] not in ALLOWED_STATUSES:
             return f"недопустимий статус у записі {rec['code']!r}: {rec['status']!r}."
     return None
+
 
 # головна функція заповнення бази
 def seed_database() -> None:
@@ -108,7 +116,7 @@ def seed_database() -> None:
     except (OSError, json.JSONDecodeError) as exc:
         print(f"Не вдалося прочитати seed.json: {exc}")
         return
-     # перевіряємо прочитані дані нашою функцією validate_seed_data
+    # перевіряємо прочитані дані нашою функцією validate_seed_data
     error = validate_seed_data(data)
     if error:
         print(f"Помилка в seed.json: {error}")
@@ -123,12 +131,10 @@ def seed_database() -> None:
 
         with closing(get_connection()) as connection:
             with connection:
-                categories_count = connection.execute(
-                    "SELECT COUNT(*) FROM categories"
-                ).fetchone()[0]
-                records_count = connection.execute(
-                    "SELECT COUNT(*) FROM records"
-                ).fetchone()[0]
+                categories_count = connection.execute("SELECT COUNT(*) FROM categories").fetchone()[
+                    0
+                ]
+                records_count = connection.execute("SELECT COUNT(*) FROM records").fetchone()[0]
                 if categories_count > 0 or records_count > 0:
                     print("База вже містить дані. Заповнення скасовано, щоб уникнути дублікатів.")
                     return

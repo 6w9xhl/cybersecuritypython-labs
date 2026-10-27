@@ -33,11 +33,13 @@ def read_records(
         gt=0,
         description="Фільтр за ідентифікатором категорії.",
     ),
-    status_filter: RecordStatus | None = Query(
-        default=None,
-        alias="status",
-        description="Фільтр за статусом (new, in_progress, done).",
-    ),
+    status_filter: Annotated[
+        RecordStatus | None,
+        Query(
+            alias="status",
+            description="Фільтр за статусом (new, in_progress, done).",
+        ),
+    ] = None,
     min_value: float | None = Query(
         default=None,
         ge=VALUE_MIN,
