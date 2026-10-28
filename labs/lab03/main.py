@@ -1,4 +1,6 @@
-"""FastAPI-додаток: Реєстр вразливостей вебзастосунку (Лабораторна робота №3)."""
+# ФАЙЛ main.py — ТОЧКА ВХОДУ застосунку FastAPI 
+# Запуск: uvicorn labs.lab03.main:app --reload --host 127.0.0.1 --port 8000
+# Тут: lifespan, метадані Swagger, підключення роутерів, [500], /ping, /student
 
 import logging
 import sqlite3
@@ -17,16 +19,14 @@ logger = logging.getLogger(__name__)
 
 DATABASE_ERROR_DETAIL = "Внутрішня помилка роботи з базою даних. Спробуйте пізніше."
 
-
+# lifespan — при старті СТВОРЮЄ відсутні таблиці (дані не стирає й не заповнює)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Життєвий цикл додатку: ініціалізація БД при старті."""
-    # Startup
     database.initialize_database()
     yield
-    # Shutdown (якщо потрібно — закриття пулів з'єднань тощо)
 
 
+# створюємо сам застосунок 
 app = FastAPI(
     title=APP_TITLE,
     description=APP_DESCRIPTION,
@@ -42,14 +42,10 @@ app = FastAPI(
 app.include_router(categories.router)
 app.include_router(records.router)
 
-
+# [500] обробник помилок SQLite: деталі — у журнал, клієнту — загальний текст
 @app.exception_handler(sqlite3.Error)
 async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResponse:
-    """Перетворити неочікувану помилку SQLite на зрозумілу відповідь 500.
 
-    Технічні деталі (наприклад, OperationalError через блокування бази) записуються
-    в журнал, а клієнт не отримує SQL-команд, файлових шляхів і трасування стека.
-    """
     logger.error(
         "Помилка SQLite під час %s %s: %s",
         request.method,
@@ -62,7 +58,7 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
         content={"detail": DATABASE_ERROR_DETAIL},
     )
 
-
+# GET /ping — перевірка доступності API - 200 {"status": "ok"}
 @app.get(
     "/ping",
     summary="Перевірка доступності API",
@@ -70,17 +66,15 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
     response_model=dict[str, str],
 )
 def ping() -> dict[str, str]:
-    """Health-check endpoint."""
     return {"status": "ok"}
 
-
+# GET /student — ПІБ, група, варіант із shared/student.py - 200
 @app.get(
     "/student",
     summary="Інформація про студента",
     description="Повертає прізвище, групу та номер варіанту.",
 )
 def student() -> dict[str, Any]:
-    """Інформація про студента з shared/student.py."""
     info = get_student_info()
     return {
         "student_name": info["student_name"],

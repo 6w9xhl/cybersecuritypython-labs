@@ -1,4 +1,6 @@
-"""Параметризовані SQL-запити до таблиць categories і records."""
+"""усі SQL-запити. Тут відкриваються з'єднання, 
+виконуються транзакції та перетворюються помилки SQLite на власні винятки. 
+Модуль не знає про FastAPI і HTTP"""
 
 import logging
 import sqlite3
@@ -17,15 +19,15 @@ RECORD_SELECT = """
 
 
 class CategoryNotFoundError(Exception):
-    """Категорії з вказаним id не існує."""
+    """Категорії з вказаним id не існує"""
 
 
 class DuplicateError(ValueError):
-    """Порушено унікальність або інше обмеження даних."""
+    """Порушено унікальність або інше обмеження даних"""
 
 
 def _row_to_record(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Перетворює рядок вибірки на словник запису."""
+    """Перетворює рядок вибірки на словник запису"""
     return {
         "id": row[0],
         "code": row[1],
@@ -146,14 +148,7 @@ def create_record(
     value: float,
     status: str,
 ) -> dict[str, Any]:
-    """Створює новий запис.
 
-    Raises
-    ------
-        CategoryNotFoundError: категорії не існує.
-        DuplicateError: код запису вже використовується або порушено обмеження.
-
-    """
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -184,14 +179,7 @@ def update_record(
     value: float,
     status: str,
 ) -> dict[str, Any] | None:
-    """Повністю оновлює змінювані поля запису. Повертає None, якщо запису немає.
 
-    Raises
-    ------
-        CategoryNotFoundError: категорії не існує.
-        DuplicateError: код запису вже використовується іншим записом.
-
-    """
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -222,14 +210,7 @@ def delete_record(record_id: int) -> bool:
 
 
 def create_records_bulk(records_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Пакетно додає записи в межах однієї транзакції (все або нічого).
 
-    Raises
-    ------
-        CategoryNotFoundError: хоча б одного посилання на категорію не існує.
-        DuplicateError: дублікат code у пакеті або в базі.
-
-    """
     with closing(get_connection()) as connection:
         try:
             with connection:
