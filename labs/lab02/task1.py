@@ -13,13 +13,9 @@ from typing import Any, ClassVar
 # правила безпеки
 PBKDF2_ITERATIONS = 100_000  # скільки разів алгоритм буде перемішувати пароль
 SALT_SIZE_BYTES = 16
-SESSION_TIMEOUT_SEC = (
-    900  # 15 хвилин, час, після якого неактивного користувача викине з системи
-)
+SESSION_TIMEOUT_SEC = 900  # 15 хвилин, час, після якого неактивного користувача викине з системи
 # шаблон пошти щось@щось.ком
-EMAIL_REGEX = re.compile(
-    r"^[a-zA-Z][a-zA-Z0-9_]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$"
-)
+EMAIL_REGEX = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{2,63}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$")
 
 
 # створення "картки працівника"
@@ -123,9 +119,7 @@ class Admin(User):
         )
         # записуємо права. Якщо нам передали якийсь список, робимо з нього унікальну множину (set).
         # якщо нічого не передали, створюємо порожню множину set()
-        self.permissions: set[str] = (
-            set(permissions) if permissions is not None else set()
-        )
+        self.permissions: set[str] = set(permissions) if permissions is not None else set()
 
     def grant_permission(self, permission: str) -> None:
         """Надає право доступу адміністратору"""
@@ -329,8 +323,6 @@ class UserAccount:
         expected_type = self._ALLOWED_KEYS[key]
         # Перевіряємо, чи не намагаються нам підсунути число замість таймера.
         if not isinstance(value, expected_type):
-            raise TypeError(
-                f"Неправильний тип для ключа '{key}': отримано {type(value).__name__}."
-            )
+            raise TypeError(f"Неправильний тип для ключа '{key}': отримано {type(value).__name__}.")
         # Якщо все ок, оновлюємо значення.
         setattr(self, key, value)

@@ -1,8 +1,7 @@
-"""Початкове заповнення бази навчальними даними з data/seed.json. python -m labs.lab03.seed"""
+"""Початкове заповнення бази навчальними даними з data/seed.json. python -m labs.lab03.seed."""
 
 import json
 import sqlite3
-
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -13,14 +12,17 @@ from labs.lab03.database import get_connection, initialize_database
 BASE_DIR = Path(__file__).resolve().parent
 SEED_DATA_PATH = BASE_DIR / "data" / "seed.json"
 
+# допустимі статуси (використовує validate_seed_data)
 ALLOWED_STATUSES = {"new", "in_progress", "done"}
+
 
 def _is_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _is_number(value: Any) -> bool:
-   return isinstance(value, int | float) and not isinstance(value, bool)
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
 
 # validate_seed_data() — ручна перевірка seed.json
 # Повертає текст помилки або None, якщо дані коректні
@@ -79,7 +81,7 @@ def validate_seed_data(data: Any) -> str | None:
 
 
 # seed_database() — головна функція заповнення
-# Порядок: файл є → JSON прочитано → дані валідні → база порожня → вставка
+# Порядок: файл є - JSON прочитано - дані валідні - база порожня - вставка
 def seed_database() -> None:
     if not SEED_DATA_PATH.exists():
         print(f"Помилка: файл {SEED_DATA_PATH} не знайдено.")
@@ -115,7 +117,8 @@ def seed_database() -> None:
                 if categories_count > 0 or records_count > 0:
                     print("База вже містить дані. Заповнення скасовано, щоб уникнути дублікатів.")
                     return
-
+                # Крок 4: вставка категорій (id з JSON), потім записів (id створює база)
+                # [SQL-ІН'ЄКЦІЯ] значення передаються через «?», а не в тексті SQL
                 connection.executemany(
                     "INSERT INTO categories (id, name) VALUES (?, ?)",
                     [(cat["id"], cat["name"].strip()) for cat in categories],

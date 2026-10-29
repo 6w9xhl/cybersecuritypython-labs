@@ -1,6 +1,7 @@
-"""усі SQL-запити. Тут відкриваються з'єднання, 
-виконуються транзакції та перетворюються помилки SQLite на власні винятки. 
-Модуль не знає про FastAPI і HTTP"""
+"""усі SQL-запити. Тут відкриваються з'єднання,
+виконуються транзакції та перетворюються помилки SQLite на власні винятки.
+Модуль не знає про FastAPI і HTTP.
+"""
 
 import logging
 import sqlite3
@@ -11,6 +12,7 @@ from labs.lab03.database import get_connection
 
 logger = logging.getLogger(__name__)
 
+# спільний SELECT для читання записів (+ category_name)
 RECORD_SELECT = """
     SELECT r.id, r.code, r.title, r.category_id, c.name, r.value, r.status
     FROM records r
@@ -18,16 +20,18 @@ RECORD_SELECT = """
 """
 
 
+# Власні винятки (їх перетворюють на HTTP-коди в routers/)
+# CategoryNotFoundError - 404;  DuplicateError - 409
 class CategoryNotFoundError(Exception):
-    """Категорії з вказаним id не існує"""
+    """Категорії з вказаним id не існує."""
 
 
 class DuplicateError(ValueError):
-    """Порушено унікальність або інше обмеження даних"""
+    """Порушено унікальність або інше обмеження даних."""
 
 
 def _row_to_record(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Перетворює рядок вибірки на словник запису"""
+    """Перетворює рядок вибірки на словник запису."""
     return {
         "id": row[0],
         "code": row[1],
@@ -51,7 +55,7 @@ def _fetch_record(connection: sqlite3.Connection, record_id: int) -> dict[str, A
     return _row_to_record(row) if row else None
 
 
-# --- РОБОТА З КАТЕГОРІЯМИ ---
+# РОБОТА З КАТЕГОРІЯМИ
 
 
 def get_categories() -> list[dict[str, Any]]:
@@ -61,6 +65,7 @@ def get_categories() -> list[dict[str, Any]]:
         return [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 
+# create_category — [409] якщо така назва вже є (UNIQUE - ValueError)
 def create_category(name: str) -> dict[str, Any]:
     """Створює нову категорію."""
     clean_name = name.strip()
@@ -77,6 +82,7 @@ def create_category(name: str) -> dict[str, Any]:
     return {"id": category_id, "name": clean_name}
 
 
+# delete_category — [409] якщо в категорії є записи; [404] якщо її немає (False)
 def delete_category(category_id: int) -> bool:
     """Видаляє порожню категорію. Повертає True, якщо видалено."""
     with closing(get_connection()) as connection:
@@ -95,13 +101,20 @@ def delete_category(category_id: int) -> bool:
             raise ValueError("Неможливо видалити категорію, яка містить записи.") from exc
 
 
-# --- РОБОТА ІЗ ЗАПИСАМИ ---
+# РОБОТА ІЗ ЗАПИСАМИ
 
 
 def get_record_by_id(record_id: int) -> dict[str, Any] | None:
     """Отримує один запис за id разом із назвою категорії (JOIN)."""
     with closing(get_connection()) as connection:
         return _fetch_record(connection, record_id)
+
+
+# get_records — СПИСОК записів
+# Фільтри через AND, сортування за id, [ПАГІНАЦІЯ] limit/offset
+# limit це скільки записів повернути максимум,
+# offset це скільки записів з початку пропустити
+# SQL-ІН'ЄКЦІЯ найкраще видно саме тут: SQL фіксований, значення в params
 
 
 def get_records(
@@ -129,7 +142,7 @@ def get_records(
         params.append(min_value)
 
     if q is not None:
-        # Буквальний пошук підрядка з урахуванням регістру (% та _ не є шаблонами).
+        # Буквальний пошук підрядка з урахуванням регістру (% та _ не є шаблонами)
         query += " AND instr(r.title, ?) > 0"
         params.append(q)
 
@@ -141,6 +154,8 @@ def get_records(
     return [_row_to_record(row) for row in rows]
 
 
+# create_record — додає запис
+# [404] немає категорії  [409] дубль code
 def create_record(
     code: str,
     title: str,
@@ -148,7 +163,6 @@ def create_record(
     value: float,
     status: str,
 ) -> dict[str, Any]:
-
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -171,6 +185,10 @@ def create_record(
     return created
 
 
+# update_record — повна заміна запису
+# None - [404] запису; [404] категорії; [409] дубль code; id не змінюється
+
+
 def update_record(
     record_id: int,
     code: str,
@@ -179,7 +197,6 @@ def update_record(
     value: float,
     status: str,
 ) -> dict[str, Any] | None:
-
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -201,6 +218,7 @@ def update_record(
             raise DuplicateError("Запис із таким кодом уже існує.") from exc
 
 
+# delete_record — видалення запису; False - [404]
 def delete_record(record_id: int) -> bool:
     """Видаляє запис за id. Повертає True, якщо видалено."""
     with closing(get_connection()) as connection:
@@ -210,7 +228,6 @@ def delete_record(record_id: int) -> bool:
 
 
 def create_records_bulk(records_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-
     with closing(get_connection()) as connection:
         try:
             with connection:

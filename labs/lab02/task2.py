@@ -131,7 +131,6 @@ def filter_by_time(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> list[LogEntry]:
-
     filtered: list[LogEntry] = []  # пустий список для підходящих записів
     for entry in entries:  # перебирає всі наявні логи
         if start_time is not None and _align(entry.timestamp, start_time) < start_time:
@@ -151,7 +150,6 @@ def export_report(
     top_error_ips: list[dict[str, object]],  # топ айпі адрес з помилками
     alerts: list[AttackAlert],  # список знайдених атак
 ) -> None:
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if report_format == "json":
         payload = {
@@ -228,9 +226,7 @@ def analyze_access_log(
             if parsed is None:  # якшо рядок не розібрався
                 logger.warning("Пропущено некоректний рядок #%d", line_num)
                 continue
-            entries.append(
-                parsed
-            )  # якшо все гуд, додаєм розібраний лог у загальний список
+            entries.append(parsed)  # якшо все гуд, додаєм розібраний лог у загальний список
 
     entries = filter_by_time(
         entries, start_time=start_time, end_time=end_time
@@ -251,28 +247,20 @@ def analyze_access_log(
     ip_status_breakdown: dict[str, Counter[int]] = defaultdict(
         Counter
     )  # ств словника, де для кожного айпі буде свій лічильник статус-кодів
-    detected_alerts: list[
-        AttackAlert
-    ] = []  # ств пустий список для зберігання інцидентів безпеки
+    detected_alerts: list[AttackAlert] = []  # ств пустий список для зберігання інцидентів безпеки
 
     for entry in entries:  # перебирає всі валідні записи
         if (
             min_status <= entry.status <= MAX_HTTP_STATUS
         ):  # якшо статус-код підпадає в діапазон помилки
-            error_ip_counter[entry.ip] += (
-                1  # додає +1 до загальної к-сть помилок для цього айпі
-            )
-            ip_status_breakdown[entry.ip][entry.status] += (
-                1  # який саме код помилки у цьому айпі
-            )
+            error_ip_counter[entry.ip] += 1  # додає +1 до загальної к-сть помилок для цього айпі
+            ip_status_breakdown[entry.ip][entry.status] += 1  # який саме код помилки у цьому айпі
         # на атаки перевіряється кожен запис незалежно від статусу
         detected_alerts.extend(
             detect_attacks(entry)
         )  # викл функ пошуку атак і + знайдене до загального спику
 
-    top_ips = error_ip_counter.most_common(
-        top_n
-    )  # просить лічильник дати топ_н найгірших айпішок
+    top_ips = error_ip_counter.most_common(top_n)  # просить лічильник дати топ_н найгірших айпішок
     print(f"\n=== Top-{top_n} IP Addresses with Error Statuses (4xx/5xx) ===")
     top_error_ips_data: list[dict[str, object]] = []  # список для збереження топ айпі
     for ip, total_err in top_ips:  # перебираєм кожну айпі з топу

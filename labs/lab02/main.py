@@ -77,18 +77,12 @@ def run_demo() -> None:
     fail_login = account.login(
         "khrystyna", "WrongPass123", "192.168.1.15"
     )  # спроба входу з неправильним паролем
-    print(
-        f"Невдалий вхід: result={fail_login}, "
-        f"is_authenticated={account.is_authenticated()}"
-    )
+    print(f"Невдалий вхід: result={fail_login}, " f"is_authenticated={account.is_authenticated()}")
 
     ok_login = account.login(
         "khrystyna", "StrongPass!23", "192.168.1.15"
     )  # спроба входу з правильним паролем
-    print(
-        f"Успішний вхід: result={ok_login}, "
-        f"is_authenticated={account.is_authenticated()}"
-    )
+    print(f"Успішний вхід: result={ok_login}, " f"is_authenticated={account.is_authenticated()}")
     print(f"Доступ через спецметод account['user']: {account['user']}")
 
     # зсуває last_activity в минуле
@@ -177,8 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(  # ств головний парсер
         prog="python -m labs.lab02.main",
         description=(
-            f"Лабораторна робота №2 | {STUDENT_NAME} ({GROUP_NAME}) | "
-            f"Варіант №{VARIANT_NUMBER}"
+            f"Лабораторна робота №2 | {STUDENT_NAME} ({GROUP_NAME}) | " f"Варіант №{VARIANT_NUMBER}"
         ),
     )
     subparsers = parser.add_subparsers(

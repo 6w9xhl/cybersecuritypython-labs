@@ -1,4 +1,6 @@
-"""Маршрути для роботи з категоріями."""
+# маршрути /categories
+# Маршрути «тонкі»: запит - repository -
+# винятки перетворюються на HTTP-коди [404] [409]
 
 from typing import Any
 
@@ -13,6 +15,7 @@ router = APIRouter(
 )
 
 
+# GET /categories - 200, список категорій за зростанням id
 @router.get(
     "",
     response_model=list[CategoryRead],
@@ -24,6 +27,7 @@ def read_categories() -> list[dict[str, Any]]:
     return repository.get_categories()
 
 
+# POST /categories - 201; [409] якщо така назва вже існує
 @router.post(
     "",
     response_model=CategoryRead,
@@ -45,6 +49,7 @@ def create_category(payload: CategoryCreate) -> dict[str, Any]:
         ) from exc
 
 
+# DELETE /categories/{category_id} - 204 без тіла
 @router.delete(
     "/{category_id}",
     status_code=status.HTTP_204_NO_CONTENT,

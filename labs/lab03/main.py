@@ -1,4 +1,4 @@
-# ФАЙЛ main.py — ТОЧКА ВХОДУ застосунку FastAPI 
+# ФАЙЛ main.py — ТОЧКА ВХОДУ застосунку FastAPI
 # Запуск: uvicorn labs.lab03.main:app --reload --host 127.0.0.1 --port 8000
 # Тут: lifespan, метадані Swagger, підключення роутерів, [500], /ping, /student
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 DATABASE_ERROR_DETAIL = "Внутрішня помилка роботи з базою даних. Спробуйте пізніше."
 
+
 # lifespan — при старті СТВОРЮЄ відсутні таблиці (дані не стирає й не заповнює)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-# створюємо сам застосунок 
+# створюємо сам застосунок
 app = FastAPI(
     title=APP_TITLE,
     description=APP_DESCRIPTION,
@@ -42,10 +43,10 @@ app = FastAPI(
 app.include_router(categories.router)
 app.include_router(records.router)
 
+
 # [500] обробник помилок SQLite: деталі — у журнал, клієнту — загальний текст
 @app.exception_handler(sqlite3.Error)
 async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResponse:
-
     logger.error(
         "Помилка SQLite під час %s %s: %s",
         request.method,
@@ -58,6 +59,7 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
         content={"detail": DATABASE_ERROR_DETAIL},
     )
 
+
 # GET /ping — перевірка доступності API - 200 {"status": "ok"}
 @app.get(
     "/ping",
@@ -67,6 +69,7 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
 )
 def ping() -> dict[str, str]:
     return {"status": "ok"}
+
 
 # GET /student — ПІБ, група, варіант із shared/student.py - 200
 @app.get(

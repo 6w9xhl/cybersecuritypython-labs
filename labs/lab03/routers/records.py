@@ -1,4 +1,7 @@
 """Маршрути для роботи з записами (знахідками вразливостей)."""
+# ФАЙЛ routers/records.py — маршрути /records (CRUD + список + пакет)
+#  параметри запиту, коди 200/201/204,
+# [404] [409] [422]
 
 from typing import Annotated, Any
 
@@ -17,6 +20,7 @@ CATEGORY_NOT_FOUND = "Категорію не знайдено."
 RECORD_NOT_FOUND = "Запис не знайдено."
 
 
+# Декоратор: GET /records — читання списку записів
 @router.get(
     "",
     response_model=list[RecordRead],
@@ -76,6 +80,7 @@ def read_records(
     )
 
 
+# GET /records/{record_id} — один запис; [404] якщо його немає
 @router.get(
     "/{record_id}",
     response_model=RecordRead,
@@ -98,6 +103,8 @@ def read_record(
     return record
 
 
+# POST /records — створення - 201
+# [404] немає категорії  [409] дубль code  [422] некоректна модель
 @router.post(
     "",
     response_model=RecordRead,
@@ -132,6 +139,8 @@ def create_record(payload: RecordCreate) -> dict[str, Any]:
         ) from exc
 
 
+# PUT /records/{record_id} — повна заміна (усі поля RecordReplace) - 200
+# [404] запису або категорії  [409] дубль code
 @router.put(
     "/{record_id}",
     response_model=RecordRead,
@@ -176,6 +185,7 @@ def replace_record(
     return updated
 
 
+# DELETE /records/{record_id} - 204 без тіла; [404] якщо запису немає
 @router.delete(
     "/{record_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -198,6 +208,9 @@ def remove_record(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# POST /records/bulk — ПАКЕТ
+# Від 1 до 100 записів; ОДНА [ТРАНЗАКЦІЯ], при помилці [ВІДКАТ]
+# [404] немає категорії  [409] дубль code  [422] розмір пакета/модель
 @router.post(
     "/bulk",
     response_model=list[RecordRead],

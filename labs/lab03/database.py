@@ -1,3 +1,5 @@
+"""єдине місце, де відкривається з'єднання з базою, і функція створення таблиць зі schema.sql.  python -m labs.lab03.database."""
+
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -12,14 +14,17 @@ def get_connection() -> sqlite3.Connection:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH)
     try:
+        # вмикати для КОЖНОГО з'єднання, інакше SQLite їх ігнорує
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
     except sqlite3.Error:
         connection.close()
         raise
 
+
+# initialize_database() — створює таблиці зі schema.sql
+# IF NOT EXISTS у схемі → повторний запуск не стирає дані
 def initialize_database() -> None:
-    """Створити таблиці за готовим SQL-скриптом.нічого не повертає."""
     script = SCHEMA_PATH.read_text(encoding="utf-8")
     with closing(get_connection()) as connection:
         try:

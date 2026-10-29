@@ -28,9 +28,7 @@ def generate_hash(password: str, salt: str = "00000") -> str:
         raise ValueError("Пароль або сіль не можуть бути порожніми")
 
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise ValidationError(
-            f"Пароль надто короткий. Мінімум {MIN_PASSWORD_LENGTH} символів."
-        )
+        raise ValidationError(f"Пароль надто короткий. Мінімум {MIN_PASSWORD_LENGTH} символів.")
 
     # конкатенація пароля та солі
     salted_password = password + salt
