@@ -1,4 +1,7 @@
-"""Початкове заповнення бази навчальними даними з data/seed.json. python -m labs.lab03.seed."""
+"""Початкове заповнення бази навчальними даними з data/seed.json.
+
+Запуск: python -m labs.lab03.seed
+"""
 
 import json
 import sqlite3
@@ -27,6 +30,7 @@ def _is_number(value: Any) -> bool:
 # validate_seed_data() — ручна перевірка seed.json
 # Повертає текст помилки або None, якщо дані коректні
 def validate_seed_data(data: Any) -> str | None:
+    """Перевірити структуру й значення seed.json; повернути текст помилки або None."""
     if not isinstance(data, dict):
         return "коренем seed.json має бути JSON-об'єкт."
     categories = data.get("categories")
@@ -83,6 +87,7 @@ def validate_seed_data(data: Any) -> str | None:
 # seed_database() — головна функція заповнення
 # Порядок: файл є - JSON прочитано - дані валідні - база порожня - вставка
 def seed_database() -> None:
+    """Заповнити порожню базу початковими даними в одній транзакції."""
     if not SEED_DATA_PATH.exists():
         print(f"Помилка: файл {SEED_DATA_PATH} не знайдено.")
         return

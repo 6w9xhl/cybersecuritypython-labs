@@ -1,4 +1,6 @@
-"""єдине місце, де відкривається з'єднання з базою, і функція створення таблиць зі schema.sql.  python -m labs.lab03.database."""
+#єдине місце, де відкривається з'єднання з базою, і функція створення таблиць зі schema.sql.
+#python -m labs.lab03.database.
+
 
 import sqlite3
 from contextlib import closing
@@ -22,9 +24,9 @@ def get_connection() -> sqlite3.Connection:
         raise
 
 
-# initialize_database() — створює таблиці зі schema.sql
-# IF NOT EXISTS у схемі → повторний запуск не стирає дані
+
 def initialize_database() -> None:
+    """створює таблиці зі schema.sql."""
     script = SCHEMA_PATH.read_text(encoding="utf-8")
     with closing(get_connection()) as connection:
         try:

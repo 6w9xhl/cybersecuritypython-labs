@@ -1,7 +1,6 @@
-"""усі SQL-запити. Тут відкриваються з'єднання,
-виконуються транзакції та перетворюються помилки SQLite на власні винятки.
-Модуль не знає про FastAPI і HTTP.
-"""
+#усі SQL-запити. Тут відкриваються з'єднання,
+#виконуються транзакції та перетворюються помилки SQLite на власні винятки.
+#Модуль не знає про FastAPI і HTTP.
 
 import logging
 import sqlite3
@@ -163,6 +162,14 @@ def create_record(
     value: float,
     status: str,
 ) -> dict[str, Any]:
+    """Створює новий запис.
+
+    Raises
+    ------
+        CategoryNotFoundError: категорії не існує.
+        DuplicateError: код запису вже використовується або порушено обмеження.
+
+    """
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -197,6 +204,14 @@ def update_record(
     value: float,
     status: str,
 ) -> dict[str, Any] | None:
+    """Повністю оновлює змінювані поля запису. Повертає None, якщо запису немає.
+
+    Raises
+    ------
+        CategoryNotFoundError: категорії не існує.
+        DuplicateError: код запису вже використовується іншим записом.
+
+    """
     with closing(get_connection()) as connection:
         try:
             with connection:
@@ -228,6 +243,14 @@ def delete_record(record_id: int) -> bool:
 
 
 def create_records_bulk(records_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Пакетно додає записи в межах однієї транзакції (все або нічого).
+
+    Raises
+    ------
+        CategoryNotFoundError: хоча б одного посилання на категорію не існує.
+        DuplicateError: дублікат code у пакеті або в базі.
+
+    """
     with closing(get_connection()) as connection:
         try:
             with connection:

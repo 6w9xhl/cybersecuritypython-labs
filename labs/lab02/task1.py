@@ -71,7 +71,7 @@ class User:
         )
 
     def check_password(self, password: str) -> bool:
-        """Перевіряє пароль за допомогою безпечного порівняння hmac.compare_digest"""
+        """Перевіряє пароль за допомогою безпечного порівняння hmac.compare_digest."""
         if not self.__password_hash or not self.__password_salt:
             return False
         # коли людина хоче зайти, ми беремо введений пароль, додаємо нашу сіль і мішаємо
@@ -85,7 +85,7 @@ class User:
         return hmac.compare_digest(self.__password_hash, candidate_hash)
 
     def deactivate(self) -> None:
-        """Деактивує обліковий запис користувача"""
+        """Деактивує обліковий запис користувача."""
         self.active = False
 
     def __str__(self) -> str:
@@ -99,7 +99,7 @@ class User:
 
 # Директорська картка
 class Admin(User):
-    """Клас адміністратора, що наслідує User та додає управління правами доступу"""
+    """Клас адміністратора, що наслідує User та додає управління правами доступу."""
 
     def __init__(
         self,
@@ -122,7 +122,7 @@ class Admin(User):
         self.permissions: set[str] = set(permissions) if permissions is not None else set()
 
     def grant_permission(self, permission: str) -> None:
-        """Надає право доступу адміністратору"""
+        """Надає право доступу адміністратору."""
         # перевіряємо, чи не передали нам порожню назву права
         if not permission or not permission.strip():
             raise ValueError("Назва дозволу не може бути порожньою.")
@@ -130,12 +130,12 @@ class Admin(User):
         self.permissions.add(permission.strip())
 
     def revoke_permission(self, permission: str) -> None:
-        """Відкликає право доступу адміністратора"""
+        """Відкликає право доступу адміністратора."""
         # Видаляємо право з множини (метод discard не видає помилку, якщо такого права і так не було)
         self.permissions.discard(permission.strip())
 
     def has_permission(self, permission: str) -> bool:
-        """Перевіряє наявність вказаного дозволу"""
+        """Перевіряє наявність вказаного дозволу."""
         # перевіряє, чи є слово у множині( тру або фолс)
         return permission.strip() in self.permissions
 
@@ -152,7 +152,7 @@ class Admin(User):
 
 # Таймер присутності
 class Session:
-    """Клас користувацької сесії з контролем часу активності в UTC"""
+    """Клас користувацької сесії з контролем часу активності в UTC."""
 
     def __init__(self, ip: str) -> None:
         # перевіряємо, чи вказали IP-адресу комп'ютера
@@ -167,12 +167,12 @@ class Session:
         self.last_activity: datetime = now
 
     def touch(self) -> None:
-        """Оновлює час останньої активності сесії поточним часом UTC"""
+        """Оновлює час останньої активності сесії поточним часом UTC."""
         # кожен раз, коли користувач щось робить, ми скидаємо цей таймер на "зараз"
         self.last_activity = datetime.now(timezone.utc)
 
     def is_active(self, timeout_sec: int) -> bool:
-        """Перевіряє, чи не минув таймаут з моменту останньої активності"""
+        """Перевіряє, чи не минув таймаут з моменту останньої активності."""
         # Перевіряємо, щоб таймаут не був від'ємним або нулем
         if timeout_sec <= 0:
             raise ValueError("Таймаут сесії (timeout_sec) має бути додатним числом.")
@@ -194,7 +194,7 @@ class Session:
     frozen=True
 )  # frozen=True означає, що цей запис "заморожений", його неможливо відредагувати після створення
 class AuditEntry:
-    """Запис у журналі аудиту"""
+    """Запис у журналі аудиту."""
 
     timestamp: datetime  # коли
     username: str  # хто
@@ -202,7 +202,7 @@ class AuditEntry:
 
 
 class AuditLog:
-    """Журнал аудиту подій безпеки"""
+    """Журнал аудиту подій безпеки."""
 
     def __init__(self) -> None:
         # На старті створюємо порожній список для зберігання записів
@@ -210,13 +210,13 @@ class AuditLog:
 
     @property
     def entries(self) -> list[AuditEntry]:
-        """Повертає копію списку записів аудиту"""
+        """Повертає копію списку записів аудиту."""
         # ми не віддаємо оригінальний список, ми повертаємо його копію list(...)
         # щоб ніхто випадково не стер історію
         return list(self._entries)
 
     def add_log(self, username: str, action: str) -> None:
-        """Додає новий запис із поточним часом UTC"""
+        """Додає новий запис із поточним часом UTC."""
         # cтворюємо нову "сторіночку" запису
         entry = AuditEntry(
             timestamp=datetime.now(timezone.utc),
@@ -227,7 +227,7 @@ class AuditLog:
         self._entries.append(entry)
 
     def show_all(self) -> None:
-        """Виводить усі записи журналу аудиту в консоль"""
+        """Виводить усі записи журналу аудиту в консоль."""
         print("=== Audit Log Entries ===")
         if not self._entries:
             print("(Журнал порожній)")
@@ -240,7 +240,7 @@ class AuditLog:
 
 
 class UserAccount:
-    """Обліковий запис, що об'єднує User, Session та AuditLog (композиція)"""
+    """Обліковий запис, що об'єднує User, Session та AuditLog (композиція)."""
 
     _ALLOWED_KEYS: ClassVar[dict[str, type | tuple[type, ...]]] = {
         "user": User,
@@ -268,7 +268,7 @@ class UserAccount:
         self.audit_log: AuditLog = audit_log if audit_log is not None else AuditLog()
 
     def login(self, username: str, password: str, ip: str) -> bool:
-        """Спроба зайти в с-му"""
+        """Спроба зайти в с-му."""
         # Перевіряємо три умови провалу:
         # 1. Ім'я не збігається з тим, що на картці?
         # 2. Або картка деактивована?
@@ -290,7 +290,7 @@ class UserAccount:
         return True
 
     def is_authenticated(self, timeout_sec: int = SESSION_TIMEOUT_SEC) -> bool:
-        """Перевіряє наявність активної сесії без її продовження"""
+        """Перевіряє наявність активної сесії без її продовження."""
         # Якщо таймера взагалі немає, або картку раптово заблокували — значить не в системі
         if self.session is None or not self.user.active:
             return False

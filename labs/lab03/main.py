@@ -20,9 +20,10 @@ logger = logging.getLogger(__name__)
 DATABASE_ERROR_DETAIL = "Внутрішня помилка роботи з базою даних. Спробуйте пізніше."
 
 
-# lifespan — при старті СТВОРЮЄ відсутні таблиці (дані не стирає й не заповнює)
+""" lifespan — при старті СТВОРЮЄ відсутні таблиці (дані не стирає й не заповнює)"""
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Створити відсутні таблиці під час запуску застосунку."""
     database.initialize_database()
     yield
 
@@ -44,9 +45,10 @@ app.include_router(categories.router)
 app.include_router(records.router)
 
 
-# [500] обробник помилок SQLite: деталі — у журнал, клієнту — загальний текст
+""" [500] обробник помилок SQLite: деталі — у журнал, клієнту — загальний текст"""
 @app.exception_handler(sqlite3.Error)
 async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResponse:
+    """Перетворити неочікувану помилку SQLite на відповідь 500."""
     logger.error(
         "Помилка SQLite під час %s %s: %s",
         request.method,
@@ -60,7 +62,7 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
     )
 
 
-# GET /ping — перевірка доступності API - 200 {"status": "ok"}
+""" GET /ping — перевірка доступності API - 200 {"status": "ok"}"""
 @app.get(
     "/ping",
     summary="Перевірка доступності API",
@@ -68,16 +70,18 @@ async def sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResp
     response_model=dict[str, str],
 )
 def ping() -> dict[str, str]:
+    """Повернути статус доступності API."""
     return {"status": "ok"}
 
 
-# GET /student — ПІБ, група, варіант із shared/student.py - 200
+""" GET /student — ПІБ, група, варіант із shared/student.py - 200"""
 @app.get(
     "/student",
     summary="Інформація про студента",
     description="Повертає прізвище, групу та номер варіанту.",
 )
 def student() -> dict[str, Any]:
+    """Повернути ПІБ, групу та номер варіанта студента."""
     info = get_student_info()
     return {
         "student_name": info["student_name"],
