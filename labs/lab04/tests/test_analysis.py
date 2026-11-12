@@ -1,4 +1,15 @@
-"""Модульні тести перевірки відповіді та правила варіанта 1 (attackVector=NETWORK, T=7.0)."""
+"""НАВІЩО ЦЕЙ ФАЙЛ: тести для «експерта» analysis.py.
+
+Ми підсовуємо експерту різні вигадані відповіді NVD і перевіряємо, що висновок
+саме такий, як ми чекаємо. Інтернет тут не потрібен зовсім.
+
+Що перевіряється (правило варіанта 1: оцінка >= 7.0 і attackVector == NETWORK)
+- оцінка нижче порога, рівно на порозі і вище порога
+- висока оцінка, але атака не через мережу
+- запис не знайдено, запис відхилено, немає оцінки чи потрібного поля
+- Primary-оцінка важливіша за Secondary
+- зіпсовані дані (текст замість числа, NaN, null...) дають помилку ValueError
+"""
 
 import copy
 import math
@@ -12,6 +23,7 @@ CVE = "CVE-2099-10001"
 RULE_V1 = {"threshold": 7.0, "field": "attackVector", "expected": "NETWORK"}
 
 
+# Одна оцінка CVSS. Можна змінити бал, attackVector, тип (Primary/Secondary) і джерело
 def metric(
     score: Any = 9.8,
     attack_vector: Any = "NETWORK",
@@ -31,6 +43,7 @@ def metric(
     }
 
 
+# Ціла відповідь NVD з одним записом. Передаємо їй список оцінок із metric()
 def payload_with(entries: Any = None, status: Any = "Analyzed", **cve_extra: Any) -> dict:
     """Створює відповідь NVD з одним записом.
 
@@ -48,12 +61,14 @@ def payload_with(entries: Any = None, status: Any = "Analyzed", **cve_extra: Any
     return {"vulnerabilities": [{"cve": cve}]}
 
 
+# Проганяє відповідь через обидві функції експерта і повертає готовий звіт
 def decide(payload: dict[str, Any], variant: int = 1) -> dict[str, Any]:
     """Проганяє повний ланцюжок extract_record → build_report."""
     return analysis.build_report(analysis.extract_record(payload, CVE), CVE, variant)
 
 
-# --- Синтетичний файл ---
+# Синтетичний файл
+# Перевіряємо, що з nvd_sample.json виходить рівно той звіт, що в методичці
 
 
 def test_sample_gives_expected_report(sample_payload: dict[str, Any]) -> None:
@@ -91,7 +106,8 @@ def test_extract_does_not_modify_payload(sample_payload: dict[str, Any]) -> None
     assert sample_payload == before
 
 
-# --- Межа порога та ознака ---
+# Межа порога та ознака
+# parametrize = один тест запускається для кожного рядка таблички нижче
 
 
 @pytest.mark.parametrize(
@@ -124,7 +140,8 @@ def test_threshold_change_only_base_score(sample_payload: dict[str, Any]) -> Non
     assert decide(sample_payload)["decision"] == "review"
 
 
-# --- Стани not_found / rejected / insufficient_data ---
+# Стани not_found / rejected / insufficient_data
+# Ситуації, коли до перевірки правила справа не доходить.
 
 
 def test_not_found() -> None:
@@ -184,7 +201,7 @@ def test_missing_status_is_insufficient() -> None:
     ],
 )
 def test_missing_score_is_insufficient(cve_extra: dict[str, Any]) -> None:
-    """Відсутня оцінка v3.1 за статусу Analyzed → insufficient_data, не нуль."""
+    """Відсутня оцінка v3.1 за статусу Analyzed - insufficient_data, не нуль."""
     report = decide(payload_with(**cve_extra))
     assert report["decision"] == "insufficient_data"
     assert report["score"] is None
@@ -208,7 +225,8 @@ def test_missing_field_of_other_variant_is_ignored() -> None:
     assert decide(payload_with([metric()]), variant=8)["decision"] == "insufficient_data"
 
 
-# --- Вибір оцінки ---
+# Вибір оцінки
+# Коли оцінок кілька: перша Primary перемагає, а без Primary береться перша в списку.
 
 
 def test_primary_has_priority_over_earlier_secondary() -> None:
@@ -261,7 +279,9 @@ def test_first_non_empty_english_description() -> None:
     assert report["description"] == "Second English."
 
 
-# --- Помилки даних ---
+# Помилки даних
+# Підсовуємо зіпсовані дані. Експерт має не «вдавати, що все добре»,
+# а підняти ValueError. pytest.raises(ValueError) = «тут ОЧІКУЄМО помилку»
 
 
 @pytest.mark.parametrize(

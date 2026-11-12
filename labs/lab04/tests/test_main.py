@@ -1,4 +1,17 @@
-"""Інтеграційні тести CLI: локальний режим, мережевий режим із двійниками, коди завершення."""
+"""НАВІЩО ЦЕЙ ФАЙЛ: тести всієї програми «як з терміналу» (main.py).
+
+Тут ми викликаємо main() так, ніби людина написала команду в терміналі,
+і перевіряємо, що програма:
+- з файлом (--input) робить звіт і НЕ ходить в інтернет;
+- на відсутній чи зламаний файл пише зрозумілу помилку і повертає код 1
+- на неправильний --cve чи номер варіанта повертає код 2
+- на мережеві помилки повертає код 1 і не показує секретів
+
+Допоміжні інструменти pytest
+- tmp_path — тимчасова папка для вигаданих файлів
+- capsys — перехоплює, що програма надрукувала (stdout окремо, stderr окремо)
+- monkeypatch — тимчасово підміняє функції і номер варіанта
+"""
 
 import json
 from pathlib import Path
@@ -14,6 +27,7 @@ CVE = "CVE-2099-10001"
 SAMPLE = Path(__file__).resolve().parent.parent / "data" / "nvd_sample.json"
 
 
+# Створює у тимчасовій папці JSON-файл з тим, що ми передали
 def write_json(tmp_path: Path, data: Any, name: str = "response.json") -> Path:
     """Записує дані у тимчасовий UTF-8 JSON-файл."""
     path = tmp_path / name
@@ -21,6 +35,8 @@ def write_json(tmp_path: Path, data: Any, name: str = "response.json") -> Path:
     return path
 
 
+# пастка: замість кур'єра ставимо манекен, який валить тест, якщо його покличуть
+# Так ми доводимо, що в режимі з файлом програма в інтернет не ходила
 def forbid_fetch(monkeypatch: pytest.MonkeyPatch) -> Mock:
     """Підміняє fetch_response двійником, що фіксує будь-яке звернення до мережі."""
     fake = Mock(side_effect=AssertionError("мережевий запит у локальному режимі"))
@@ -28,7 +44,8 @@ def forbid_fetch(monkeypatch: pytest.MonkeyPatch) -> Mock:
     return fake
 
 
-# --- Локальний режим ---
+# Локальний режим
+# Запуск з --input: дані беруться з файла, інтернет не потрібен
 
 
 def test_local_sample_report(monkeypatch: pytest.MonkeyPatch, capsys: Any) -> None:
@@ -78,7 +95,7 @@ def test_local_insufficient_data_exit_zero(
 
 
 def test_local_missing_file(tmp_path: Path, capsys: Any) -> None:
-    """Відсутній файл → код 1, повідомлення у stderr, порожній stdout."""
+    """Відсутній файл - код 1, повідомлення у stderr, порожній stdout."""
     assert main.main(["--cve", CVE, "--input", str(tmp_path / "missing.json")]) == 1
     out, err = capsys.readouterr()
     assert out == ""
@@ -87,7 +104,7 @@ def test_local_missing_file(tmp_path: Path, capsys: Any) -> None:
 
 
 def test_local_invalid_json(tmp_path: Path, capsys: Any) -> None:
-    """Некоректний JSON → код 1 і повідомлення у stderr."""
+    """Некоректний JSON - код 1 і повідомлення у stderr."""
     path = tmp_path / "broken.json"
     path.write_text('{"vulnerabilities": [', encoding="utf-8")
     assert main.main(["--cve", CVE, "--input", str(path)]) == 1
@@ -97,7 +114,7 @@ def test_local_invalid_json(tmp_path: Path, capsys: Any) -> None:
 
 
 def test_local_not_utf8(tmp_path: Path, capsys: Any) -> None:
-    """Файл не в UTF-8 → код 1."""
+    """Файл не в UTF-8 - код 1."""
     path = tmp_path / "cp1251.json"
     path.write_bytes('{"опис": 1}'.encode("cp1251"))
     assert main.main(["--cve", CVE, "--input", str(path)]) == 1
@@ -135,7 +152,9 @@ def test_load_response_reads_file(tmp_path: Path) -> None:
     assert main.load_response(path) == {"vulnerabilities": [], "note": "тест"}
 
 
-# --- Аргументи та варіант ---
+# Аргументи та варіант
+# Неправильний запуск. argparse при помилці сам завершує програму (SystemExit з кодом 2),
+# тому ловимо це через pytest.raises(SystemExit)
 
 
 @pytest.mark.parametrize(
@@ -143,7 +162,7 @@ def test_load_response_reads_file(tmp_path: Path) -> None:
     ["cve-2021-44228", "CVE-21-44228", "CVE-2021-442", "CVE-2021-44228 ", "xCVE-2021-44228", ""],
 )
 def test_invalid_cve_argument(cve: str, capsys: Any) -> None:
-    """Неправильний ідентифікатор → SystemExit(2) від argparse."""
+    """Неправильний ідентифікатор - SystemExit(2) від argparse."""
     with pytest.raises(SystemExit) as exc_info:
         main.main(["--cve", cve, "--input", str(SAMPLE)])
     assert exc_info.value.code == 2
@@ -158,7 +177,7 @@ def test_valid_cve_formats(cve: str, tmp_path: Path) -> None:
 
 
 def test_missing_cve_argument() -> None:
-    """Без обов'язкового --cve → SystemExit(2)."""
+    """Без обов'язкового --cve - SystemExit(2)."""
     with pytest.raises(SystemExit) as exc_info:
         main.main(["--input", str(SAMPLE)])
     assert exc_info.value.code == 2
@@ -166,7 +185,7 @@ def test_missing_cve_argument() -> None:
 
 @pytest.mark.parametrize("variant", [0, 16, -1, True, "1", 1.0, None])
 def test_invalid_variant_number(monkeypatch: pytest.MonkeyPatch, variant: Any, capsys: Any) -> None:
-    """Номер варіанта поза 1–15, bool або не int → код 2."""
+    """Номер варіанта поза 1–15, bool або не int →-код 2."""
     monkeypatch.setattr(main, "VARIANT_NUMBER", variant)
     assert main.main(["--cve", CVE, "--input", str(SAMPLE)]) == 2
     out, err = capsys.readouterr()
@@ -183,7 +202,9 @@ def test_other_variant_via_monkeypatch(monkeypatch: pytest.MonkeyPatch, capsys: 
     assert report["decision"] == "other"
 
 
-# --- Мережевий режим (підміна fetch_response) ---
+#  Мережевий режим (підміна fetch_response)
+# Запуск без --input. Замість справжнього кур'єра — манекен, який повертає дані
+# або підкидає потрібну помилку. Перевіряємо, як main.py на це реагує
 
 
 def test_network_mode_uses_fetch(
@@ -198,6 +219,8 @@ def test_network_mode_uses_fetch(
     assert json.loads(capsys.readouterr().out)["decision"] == "review"
 
 
+# Створює HTTP-помилку із заданим кодом. Слово "secret" у тексті — навмисне:
+# тест перевіряє, що цей текст НЕ потрапить у повідомлення для людини
 def _http_error(status: int) -> requests.exceptions.HTTPError:
     """Створює HTTPError із відповіддю заданого статусу."""
     response = Mock(spec=requests.Response)
@@ -221,7 +244,7 @@ def _http_error(status: int) -> requests.exceptions.HTTPError:
 def test_network_errors_exit_one(
     monkeypatch: pytest.MonkeyPatch, error: Exception, expected_text: str, capsys: Any
 ) -> None:
-    """Мережеві/HTTP-помилки → код 1, власне повідомлення без тексту винятку."""
+    """Мережеві/HTTP-помилки - код 1, власне повідомлення без тексту винятку."""
     monkeypatch.setattr(main.api_client, "fetch_response", Mock(side_effect=error))
 
     assert main.main(["--cve", CVE]) == 1

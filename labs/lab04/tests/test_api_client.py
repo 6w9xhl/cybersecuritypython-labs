@@ -1,4 +1,12 @@
-"""Тести HTTP-клієнта NVD: підміняється лише requests.get, функції клієнта справжні."""
+"""НАВІЩО ЦЕЙ ФАЙЛ: тести для «кур'єра» api_client.py.
+
+Справжній сайт NVD тут не використовується. Замість функції requests.get, яка ходить
+в інтернет, ми підставляємо «манекен» (Mock). Кур'єр думає, що відправив запит,
+а ми потім питаємо манекена: «з якими параметрами тебе викликали?».
+
+Так перевіряється справжній код кур'єра: адреса, cveId, заголовки, таймаут,
+а також що він робить, коли сайт відповів помилкою чи не відповів зовсім.
+"""
 
 from typing import Any
 from unittest.mock import Mock
@@ -12,6 +20,9 @@ CVE = "CVE-2099-10001"
 URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
+# Манекен «відповіді сайту»: каже статус, який ми задали, і віддає наші дані як JSON
+# Важливо: raise_for_status() у манекена сам НІЧОГО не робить, навіть при статусі 500.
+# Щоб він підняв помилку, треба окремо сказати йому це через side_effect
 def fake_response(status_code: int = 200, payload: Any = None) -> Mock:
     """Створює двійник requests.Response з успішним raise_for_status()."""
     response = Mock(spec=requests.Response)
@@ -21,6 +32,8 @@ def fake_response(status_code: int = 200, payload: Any = None) -> Mock:
     return response
 
 
+# Підміняє requests.get саме там, де його шукає кур'єр (api_client.requests.get)
+# monkeypatch після тесту сам поверне справжню функцію назад
 def install_get(monkeypatch: pytest.MonkeyPatch, **mock_kwargs: Any) -> Mock:
     """Підміняє requests.get у модулі клієнта і повертає двійник."""
     fake_get = Mock(**mock_kwargs)
@@ -28,7 +41,8 @@ def install_get(monkeypatch: pytest.MonkeyPatch, **mock_kwargs: Any) -> Mock:
     return fake_get
 
 
-# --- build_headers ---
+# build_headers
+# Перевіряємо заголовки до запиту. Ключ тут завжди вигаданий, не справжній
 
 
 def test_headers_without_key() -> None:
@@ -59,7 +73,8 @@ def test_key_read_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
     assert api_client.build_headers()["apiKey"] == "later-key"
 
 
-# --- fetch_response ---
+#  fetch_response
+# Перевіряємо сам запит і реакцію на помилки сайту. requests.get — завжди манекен
 
 
 def test_fetch_uses_expected_request(monkeypatch: pytest.MonkeyPatch) -> None:
