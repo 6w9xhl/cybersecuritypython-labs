@@ -1,13 +1,3 @@
-"""НАВІЩО ЦЕЙ ФАЙЛ: «кур'єр», який ходить на сайт NVD по дані.
-
-Тут лише дві речі:
-- build_headers() готує заголовки до запиту: «хочу JSON» і, якщо є, ключ
-- fetch_response() відправляє ОДИН запит у NVD і повертає відповідь як словник Python
-
-Цей файл нічого не друкує і не розбирається, що саме прийшло у відповіді
-Перевіркою даних займається analysis.py, а повідомленнями для людини — main.py
-"""
-
 import os
 from typing import Any
 
@@ -21,22 +11,13 @@ API_KEY_ENV = "NVD_API_KEY"
 class UnexpectedStatusError(Exception):
     """Сервер повернув статус, відмінний від 200, без HTTP-помилки (наприклад, 3xx)."""
 
-    # Наша власна «тривога» для випадку, коли сайт відповів не 200 і не помилкою,
-    # а, наприклад, «йди на іншу адресу» (301/302). Запам'ятовуємо код статусу,
-    # щоб main.py міг його показати людині.
     def __init__(self, status_code: int) -> None:
         super().__init__(f"Неочікуваний HTTP-статус: {status_code}")
         self.status_code = status_code
 
 
 def build_headers() -> dict[str, str]:
-    """Повертає заголовки запиту до NVD.
-
-    Завжди містить ``Accept: application/json``. Якщо змінна середовища
-    ``NVD_API_KEY`` має непорожнє (після обрізання пробілів) значення,
-    додає його в заголовок ``apiKey``. Змінна читається під час виклику.
-    """
-    # Перший заголовок «відповідай мені у форматі JSON».
+    """Повертає заголовки запиту до NVD."""
     headers = {"Accept": "application/json"}
     # Пробуємо дістати ключ з терміналу. Якщо його немає — буде порожній рядок.
     api_key = (os.getenv(API_KEY_ENV) or "").strip()
@@ -48,17 +29,7 @@ def build_headers() -> dict[str, str]:
 
 
 def fetch_response(cve_id: str) -> Any:
-    """Виконує один GET-запит до NVD за ідентифікатором CVE і повертає декодований JSON.
-
-    Винятки:
-        requests.exceptions.Timeout: перевищено таймаут з'єднання або читання
-        requests.exceptions.ConnectionError: не вдалося з'єднатися із сервером
-        requests.exceptions.HTTPError: сервер повернув статус 4xx або 5xx
-        UnexpectedStatusError: статус не 4xx/5xx, але й не 200 (зокрема перенаправлення)
-        requests.exceptions.JSONDecodeError: тіло відповіді не є коректним JSON
-
-    """
-    # Відправляємо запит «дай дані» (GET) на сайт NVD
+    """Виконує один GET-запит до NVD за ідентифікатором CVE і повертає декодований JSON."""
     response = requests.get(
         NVD_API_URL,  # куди йдемо
         params={"cveId": cve_id},  # що шукаємо: допишеться до адреси як ?cveId=CVE-...
